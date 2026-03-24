@@ -283,7 +283,7 @@ private fun SearchSheetContent(
                     items(results) { place ->
                         ListItem(
                             headlineContent = { Text(place.name) },
-                            supportingContent = place.address?.let { { Text(it) } },
+                            supportingContent = { Text(place.displayName) },
                             modifier = Modifier.clickable { onResultClick(place) },
                         )
                         HorizontalDivider()

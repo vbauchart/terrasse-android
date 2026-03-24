@@ -1,5 +1,6 @@
 package com.terrass.app.ui.screens.addterrace
 
+import android.location.Location
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -78,6 +79,10 @@ class AddEditTerraceViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val terraceId: Long? = savedStateHandle.get<String>("id")?.toLongOrNull()
+
+    // Point de référence pour trier les résultats de recherche par distance
+    private val refLat: Double = savedStateHandle.get<String>("lat")?.toDoubleOrNull() ?: 48.8566
+    private val refLng: Double = savedStateHandle.get<String>("lng")?.toDoubleOrNull() ?: 2.3522
 
     private val _uiState = MutableStateFlow(
         AddTerraceUiState(
@@ -213,7 +218,8 @@ class AddEditTerraceViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isSearching = true, searchError = null)
             searchPlacesUseCase(query)
                 .onSuccess { results ->
-                    _uiState.value = _uiState.value.copy(searchResults = results, isSearching = false)
+                    val sorted = results.sortedBy { distanceTo(it.latitude, it.longitude) }
+                    _uiState.value = _uiState.value.copy(searchResults = sorted, isSearching = false)
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -222,6 +228,12 @@ class AddEditTerraceViewModel @Inject constructor(
                     )
                 }
         }
+    }
+
+    private fun distanceTo(lat: Double, lng: Double): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(refLat, refLng, lat, lng, results)
+        return results[0]
     }
 
     fun applyPlaceResult(place: PlaceResult) {
