@@ -4,21 +4,20 @@ import com.terrass.app.data.local.entity.TerraceEntity
 import com.terrass.app.data.local.entity.TerraceWithVotes
 import com.terrass.app.domain.model.Comfort
 import com.terrass.app.domain.model.Environment
-import com.terrass.app.domain.model.ExposureType
-import com.terrass.app.domain.model.FurnitureType
 import com.terrass.app.domain.model.NoiseLevel
-import com.terrass.app.domain.model.Orientation
 import com.terrass.app.domain.model.PriceRange
 import com.terrass.app.domain.model.RoadProximity
 import com.terrass.app.domain.model.Service
 import com.terrass.app.domain.model.ServiceQuality
 import com.terrass.app.domain.model.SunExposure
+import com.terrass.app.domain.model.SunTime
 import com.terrass.app.domain.model.Terrace
 import com.terrass.app.domain.model.TerraceSize
 import com.terrass.app.domain.model.TerraceStatus
 import com.terrass.app.domain.model.ViewQuality
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class TerraceMapperTest {
@@ -28,8 +27,8 @@ class TerraceMapperTest {
         val entity = TerraceEntity(
             id = 1, name = "Café Soleil", latitude = 43.6, longitude = 1.4,
             address = "1 rue Test",
-            orientation = "south", sunExposure = "full_sun",
-            isCovered = true, isHeated = false, furnitureType = "chairs", size = "medium",
+            sunTimes = "morning,noon",
+            isCovered = true, isHeated = false, size = "medium",
             roadProximity = "low", noiseLevel = "quiet", viewQuality = "good", hasVegetation = true,
             serviceQuality = "excellent", priceRange = "moderate", cuisineType = "français",
             createdAt = 1000L, status = "active",
@@ -43,10 +42,8 @@ class TerraceMapperTest {
         assertEquals(43.6, terrace.latitude)
         assertEquals(1.4, terrace.longitude)
         assertEquals("1 rue Test", terrace.address)
-        assertEquals(Orientation.SOUTH, terrace.sunExposure.orientation)
-        assertEquals(ExposureType.FULL_SUN, terrace.sunExposure.exposure)
+        assertEquals(setOf(SunTime.MORNING, SunTime.NOON), terrace.sunExposure.sunTimes)
         assertEquals(true, terrace.comfort.isCovered)
-        assertEquals(FurnitureType.CHAIRS, terrace.comfort.furnitureType)
         assertEquals(TerraceSize.MEDIUM, terrace.comfort.size)
         assertEquals(RoadProximity.LOW, terrace.environment.roadProximity)
         assertEquals(NoiseLevel.QUIET, terrace.environment.noiseLevel)
@@ -67,19 +64,40 @@ class TerraceMapperTest {
 
         val terrace = withVotes.toDomain()
 
-        assertNull(terrace.sunExposure.orientation)
-        assertNull(terrace.sunExposure.exposure)
-        assertNull(terrace.comfort.furnitureType)
+        assertTrue(terrace.sunExposure.sunTimes.isEmpty())
+        assertNull(terrace.comfort.size)
         assertNull(terrace.environment.roadProximity)
         assertNull(terrace.service.quality)
+    }
+
+    @Test
+    fun `toDomain parses all three sun times`() {
+        val entity = TerraceEntity(
+            id = 3, name = "Soleil", latitude = 43.0, longitude = 1.0,
+            sunTimes = "morning,noon,evening",
+        )
+        val terrace = TerraceWithVotes(entity, 0, 0).toDomain()
+
+        assertEquals(setOf(SunTime.MORNING, SunTime.NOON, SunTime.EVENING), terrace.sunExposure.sunTimes)
+    }
+
+    @Test
+    fun `toDomain ignores unknown sun time values`() {
+        val entity = TerraceEntity(
+            id = 4, name = "Test", latitude = 43.0, longitude = 1.0,
+            sunTimes = "morning,unknown_value",
+        )
+        val terrace = TerraceWithVotes(entity, 0, 0).toDomain()
+
+        assertEquals(setOf(SunTime.MORNING), terrace.sunExposure.sunTimes)
     }
 
     @Test
     fun `toEntity maps all fields correctly`() {
         val terrace = Terrace(
             id = 5, name = "Test", latitude = 43.0, longitude = 1.0,
-            sunExposure = SunExposure(Orientation.EAST, ExposureType.SHADE),
-            comfort = Comfort(isCovered = true, isHeated = true, furnitureType = FurnitureType.LOUNGE, size = TerraceSize.LARGE),
+            sunExposure = SunExposure(setOf(SunTime.MORNING, SunTime.EVENING)),
+            comfort = Comfort(isCovered = true, isHeated = true, size = TerraceSize.LARGE),
             environment = Environment(RoadProximity.NONE, NoiseLevel.QUIET, ViewQuality.EXCEPTIONAL, true),
             service = Service(ServiceQuality.GOOD, PriceRange.CHEAP, "italien"),
         )
@@ -88,11 +106,8 @@ class TerraceMapperTest {
 
         assertEquals(5, entity.id)
         assertEquals("Test", entity.name)
-        assertEquals("east", entity.orientation)
-        assertEquals("shade", entity.sunExposure)
         assertEquals(true, entity.isCovered)
         assertEquals(true, entity.isHeated)
-        assertEquals("lounge", entity.furnitureType)
         assertEquals("large", entity.size)
         assertEquals("none", entity.roadProximity)
         assertEquals("quiet", entity.noiseLevel)
@@ -101,14 +116,30 @@ class TerraceMapperTest {
         assertEquals("good", entity.serviceQuality)
         assertEquals("cheap", entity.priceRange)
         assertEquals("italien", entity.cuisineType)
+        // sun_times order may vary, check both values are present
+        val times = entity.sunTimes?.split(",")?.toSet()
+        assertEquals(setOf("morning", "evening"), times)
+    }
+
+    @Test
+    fun `toEntity stores null for empty sun times`() {
+        val terrace = Terrace(
+            id = 6, name = "Ombre", latitude = 43.0, longitude = 1.0,
+            sunExposure = SunExposure(emptySet()),
+            comfort = Comfort(),
+            environment = Environment(),
+            service = Service(),
+        )
+
+        assertNull(terrace.toEntity().sunTimes)
     }
 
     @Test
     fun `roundtrip entity to domain to entity preserves data`() {
         val original = TerraceEntity(
             id = 3, name = "Roundtrip", latitude = 44.0, longitude = 3.0,
-            orientation = "northwest", sunExposure = "partial",
-            isCovered = false, isHeated = true, furnitureType = "mixed", size = "small",
+            sunTimes = "morning,noon",
+            isCovered = false, isHeated = true, size = "small",
             roadProximity = "high", noiseLevel = "noisy", viewQuality = "none", hasVegetation = false,
             serviceQuality = "poor", priceRange = "expensive", cuisineType = "bar",
             createdAt = 5000L, status = "active",
@@ -119,12 +150,14 @@ class TerraceMapperTest {
 
         assertEquals(original.id, backToEntity.id)
         assertEquals(original.name, backToEntity.name)
-        assertEquals(original.orientation, backToEntity.orientation)
-        assertEquals(original.sunExposure, backToEntity.sunExposure)
         assertEquals(original.isCovered, backToEntity.isCovered)
-        assertEquals(original.furnitureType, backToEntity.furnitureType)
         assertEquals(original.roadProximity, backToEntity.roadProximity)
         assertEquals(original.noiseLevel, backToEntity.noiseLevel)
         assertEquals(original.serviceQuality, backToEntity.serviceQuality)
+        // sun times roundtrip (order may vary)
+        assertEquals(
+            original.sunTimes?.split(",")?.toSet(),
+            backToEntity.sunTimes?.split(",")?.toSet(),
+        )
     }
 }

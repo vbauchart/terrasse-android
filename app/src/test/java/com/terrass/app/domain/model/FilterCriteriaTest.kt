@@ -9,8 +9,8 @@ class FilterCriteriaTest {
 
     private val baseTerrace = Terrace(
         id = 1, name = "Test", latitude = 43.6, longitude = 1.4,
-        sunExposure = SunExposure(Orientation.SOUTH, ExposureType.FULL_SUN),
-        comfort = Comfort(isCovered = true, isHeated = false, furnitureType = FurnitureType.CHAIRS, size = TerraceSize.MEDIUM),
+        sunExposure = SunExposure(setOf(SunTime.MORNING, SunTime.NOON)),
+        comfort = Comfort(isCovered = true, isHeated = false, size = TerraceSize.MEDIUM),
         environment = Environment(noiseLevel = NoiseLevel.QUIET, viewQuality = ViewQuality.GOOD, hasVegetation = true),
         service = Service(quality = ServiceQuality.GOOD, priceRange = PriceRange.MODERATE),
         thumbsUp = 8, thumbsDown = 2,
@@ -22,27 +22,27 @@ class FilterCriteriaTest {
     }
 
     @Test
-    fun `filter by exposure type matches`() {
-        val filter = FilterCriteria(exposureTypes = setOf(ExposureType.FULL_SUN))
+    fun `filter by sun time matches when terrace has that time`() {
+        val filter = FilterCriteria(sunTimes = setOf(SunTime.MORNING))
         assertTrue(filter.matches(baseTerrace))
     }
 
     @Test
-    fun `filter by exposure type rejects`() {
-        val filter = FilterCriteria(exposureTypes = setOf(ExposureType.SHADE))
+    fun `filter by sun time rejects when terrace lacks that time`() {
+        val filter = FilterCriteria(sunTimes = setOf(SunTime.EVENING))
         assertFalse(filter.matches(baseTerrace))
     }
 
     @Test
-    fun `filter by orientation matches`() {
-        val filter = FilterCriteria(orientations = setOf(Orientation.SOUTH, Orientation.EAST))
+    fun `filter by sun time matches when any time matches`() {
+        val filter = FilterCriteria(sunTimes = setOf(SunTime.NOON, SunTime.EVENING))
         assertTrue(filter.matches(baseTerrace))
     }
 
     @Test
-    fun `filter by orientation rejects`() {
-        val filter = FilterCriteria(orientations = setOf(Orientation.NORTH))
-        assertFalse(filter.matches(baseTerrace))
+    fun `filter by sun time rejects terrace with no sun times`() {
+        val noSun = baseTerrace.copy(sunExposure = SunExposure())
+        assertFalse(FilterCriteria(sunTimes = setOf(SunTime.MORNING)).matches(noSun))
     }
 
     @Test
@@ -61,18 +61,13 @@ class FilterCriteriaTest {
     }
 
     @Test
-    fun `filter by furniture type matches`() {
-        assertTrue(FilterCriteria(furnitureTypes = setOf(FurnitureType.CHAIRS)).matches(baseTerrace))
-    }
-
-    @Test
-    fun `filter by furniture type rejects`() {
-        assertFalse(FilterCriteria(furnitureTypes = setOf(FurnitureType.LOUNGE)).matches(baseTerrace))
-    }
-
-    @Test
     fun `filter by size matches`() {
         assertTrue(FilterCriteria(sizes = setOf(TerraceSize.MEDIUM)).matches(baseTerrace))
+    }
+
+    @Test
+    fun `filter by size rejects`() {
+        assertFalse(FilterCriteria(sizes = setOf(TerraceSize.LARGE)).matches(baseTerrace))
     }
 
     @Test
@@ -129,7 +124,7 @@ class FilterCriteriaTest {
     @Test
     fun `combined filters all must match`() {
         val filter = FilterCriteria(
-            exposureTypes = setOf(ExposureType.FULL_SUN),
+            sunTimes = setOf(SunTime.MORNING),
             noiseLevels = setOf(NoiseLevel.QUIET),
             isCovered = true,
         )
@@ -139,7 +134,7 @@ class FilterCriteriaTest {
     @Test
     fun `combined filters one fails rejects`() {
         val filter = FilterCriteria(
-            exposureTypes = setOf(ExposureType.FULL_SUN),
+            sunTimes = setOf(SunTime.MORNING),
             noiseLevels = setOf(NoiseLevel.NOISY), // mismatch
         )
         assertFalse(filter.matches(baseTerrace))
@@ -148,7 +143,7 @@ class FilterCriteriaTest {
     @Test
     fun `activeCount counts active filters`() {
         val filter = FilterCriteria(
-            exposureTypes = setOf(ExposureType.FULL_SUN),
+            sunTimes = setOf(SunTime.NOON),
             isCovered = true,
             minPositivePercent = 50,
         )
@@ -158,11 +153,5 @@ class FilterCriteriaTest {
     @Test
     fun `activeCount is zero for empty filter`() {
         assertEquals(0, FilterCriteria().activeCount)
-    }
-
-    @Test
-    fun `filter with null attribute in terrace rejects`() {
-        val noExposure = baseTerrace.copy(sunExposure = SunExposure())
-        assertFalse(FilterCriteria(exposureTypes = setOf(ExposureType.FULL_SUN)).matches(noExposure))
     }
 }

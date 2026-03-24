@@ -45,15 +45,13 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 **Exposition au soleil**
 | Attribut | Type | Valeurs |
 |----------|------|---------|
-| Orientation | Choix unique | N, S, E, O, NE, NO, SE, SO |
-| Exposition | Choix unique | Plein soleil, Partiel, Ombre |
+| Ensoleillée | Choix multiple | Matin, Midi, Soir |
 
 **Confort & équipement**
 | Attribut | Type | Valeurs |
 |----------|------|---------|
 | Couverte | Booléen | Oui / Non |
 | Chauffée | Booléen | Oui / Non |
-| Mobilier | Choix unique | Chaises, Bancs, Lounge, Mixte |
 | Taille | Choix unique | Petite, Moyenne, Grande |
 
 **Environnement**
@@ -117,11 +115,9 @@ name            TEXT NOT NULL
 latitude        REAL NOT NULL
 longitude       REAL NOT NULL
 address         TEXT
-orientation     TEXT        -- "north","south","east","west","northeast",...
-sun_exposure    TEXT        -- "full_sun","partial","shade"
+sun_times       TEXT        -- "morning,noon,evening" (comma-separated)
 is_covered      INTEGER     -- 0/1
 is_heated       INTEGER     -- 0/1
-furniture_type  TEXT        -- "chairs","benches","lounge","mixed"
 size            TEXT        -- "small","medium","large"
 road_proximity  TEXT        -- "none","low","medium","high"
 noise_level     TEXT        -- "quiet","moderate","noisy"
@@ -147,7 +143,7 @@ created_at      INTEGER
 
 - `Terrace` : modèle principal avec sous-objets `SunExposure`, `Comfort`, `Environment`, `Service`
 - `FilterCriteria` : data class contenant tous les critères de filtre
-- Enums Kotlin : `Orientation`, `ExposureType`, `FurnitureType`, `TerraceSize`, `NoiseLevel`, `ViewQuality`, `ServiceQuality`, `PriceRange`, `TerraceStatus`
+- Enums Kotlin : `SunTime`, `TerraceSize`, `NoiseLevel`, `ViewQuality`, `ServiceQuality`, `PriceRange`, `TerraceStatus`
 - `TerraceRepository` : interface dans le domain
 
 ### 2.5 Use Cases

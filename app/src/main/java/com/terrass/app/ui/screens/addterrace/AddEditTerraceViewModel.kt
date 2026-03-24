@@ -5,10 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.terrass.app.domain.model.Comfort
 import com.terrass.app.domain.model.Environment
-import com.terrass.app.domain.model.ExposureType
-import com.terrass.app.domain.model.FurnitureType
 import com.terrass.app.domain.model.NoiseLevel
-import com.terrass.app.domain.model.Orientation
+import com.terrass.app.domain.model.SunTime
 import com.terrass.app.domain.model.PriceRange
 import com.terrass.app.domain.model.RoadProximity
 import com.terrass.app.domain.model.Service
@@ -36,11 +34,9 @@ data class AddTerraceUiState(
     val name: String = "",
     val latitude: Double = 48.8566,
     val longitude: Double = 2.3522,
-    val orientation: Orientation? = null,
-    val exposure: ExposureType? = null,
+    val sunTimes: Set<SunTime> = emptySet(),
     val isCovered: Boolean = false,
     val isHeated: Boolean = false,
-    val furnitureType: FurnitureType? = null,
     val size: TerraceSize? = null,
     val roadProximity: RoadProximity? = null,
     val noiseLevel: NoiseLevel? = null,
@@ -97,11 +93,9 @@ class AddEditTerraceViewModel @Inject constructor(
                 name = terrace.name,
                 latitude = terrace.latitude,
                 longitude = terrace.longitude,
-                orientation = terrace.sunExposure.orientation,
-                exposure = terrace.sunExposure.exposure,
+                sunTimes = terrace.sunExposure.sunTimes,
                 isCovered = terrace.comfort.isCovered,
                 isHeated = terrace.comfort.isHeated,
-                furnitureType = terrace.comfort.furnitureType,
                 size = terrace.comfort.size,
                 roadProximity = terrace.environment.roadProximity,
                 noiseLevel = terrace.environment.noiseLevel,
@@ -119,12 +113,10 @@ class AddEditTerraceViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(name = name, nameError = null)
     }
 
-    fun updateOrientation(orientation: Orientation?) {
-        _uiState.value = _uiState.value.copy(orientation = orientation)
-    }
-
-    fun updateExposure(exposure: ExposureType?) {
-        _uiState.value = _uiState.value.copy(exposure = exposure)
+    fun toggleSunTime(sunTime: SunTime) {
+        val current = _uiState.value.sunTimes
+        val new = if (sunTime in current) current - sunTime else current + sunTime
+        _uiState.value = _uiState.value.copy(sunTimes = new)
     }
 
     fun updateCovered(covered: Boolean) {
@@ -133,10 +125,6 @@ class AddEditTerraceViewModel @Inject constructor(
 
     fun updateHeated(heated: Boolean) {
         _uiState.value = _uiState.value.copy(isHeated = heated)
-    }
-
-    fun updateFurnitureType(type: FurnitureType?) {
-        _uiState.value = _uiState.value.copy(furnitureType = type)
     }
 
     fun updateSize(size: TerraceSize?) {
@@ -189,8 +177,8 @@ class AddEditTerraceViewModel @Inject constructor(
                 name = state.name.trim(),
                 latitude = state.latitude,
                 longitude = state.longitude,
-                sunExposure = SunExposure(state.orientation, state.exposure),
-                comfort = Comfort(state.isCovered, state.isHeated, state.furnitureType, state.size),
+                sunExposure = SunExposure(state.sunTimes),
+                comfort = Comfort(state.isCovered, state.isHeated, state.size),
                 environment = Environment(state.roadProximity, state.noiseLevel, state.viewQuality, state.hasVegetation),
                 service = Service(state.serviceQuality, state.priceRange, state.cuisineType.ifBlank { null }),
             )

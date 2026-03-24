@@ -1,38 +1,12 @@
 package com.terrass.app.domain.model
 
-enum class Orientation(val value: String, val label: String) {
-    NORTH("north", "N"),
-    SOUTH("south", "S"),
-    EAST("east", "E"),
-    WEST("west", "O"),
-    NORTHEAST("northeast", "NE"),
-    NORTHWEST("northwest", "NO"),
-    SOUTHEAST("southeast", "SE"),
-    SOUTHWEST("southwest", "SO");
+enum class SunTime(val value: String, val label: String) {
+    MORNING("morning", "Matin"),
+    NOON("noon", "Midi"),
+    EVENING("evening", "Soir");
 
     companion object {
-        fun fromValue(value: String?): Orientation? = entries.find { it.value == value }
-    }
-}
-
-enum class ExposureType(val value: String, val label: String) {
-    FULL_SUN("full_sun", "Plein soleil"),
-    PARTIAL("partial", "Partiel"),
-    SHADE("shade", "Ombre");
-
-    companion object {
-        fun fromValue(value: String?): ExposureType? = entries.find { it.value == value }
-    }
-}
-
-enum class FurnitureType(val value: String, val label: String) {
-    CHAIRS("chairs", "Chaises"),
-    BENCHES("benches", "Bancs"),
-    LOUNGE("lounge", "Lounge"),
-    MIXED("mixed", "Mixte");
-
-    companion object {
-        fun fromValue(value: String?): FurnitureType? = entries.find { it.value == value }
+        fun fromValue(value: String?): SunTime? = entries.find { it.value == value }
     }
 }
 

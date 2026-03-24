@@ -33,10 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.terrass.app.domain.model.ExposureType
-import com.terrass.app.domain.model.FurnitureType
 import com.terrass.app.domain.model.NoiseLevel
-import com.terrass.app.domain.model.Orientation
+import com.terrass.app.domain.model.SunTime
 import com.terrass.app.domain.model.PriceRange
 import com.terrass.app.domain.model.RoadProximity
 import com.terrass.app.domain.model.ServiceQuality
@@ -101,13 +99,10 @@ fun AddEditTerraceScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // --- Exposition au soleil ---
-            SectionTitle("Exposition au soleil")
-            ChipGroup("Orientation", Orientation.entries, uiState.orientation, { it.label }) {
-                viewModel.updateOrientation(if (it == uiState.orientation) null else it)
-            }
-            ChipGroup("Exposition", ExposureType.entries, uiState.exposure, { it.label }) {
-                viewModel.updateExposure(if (it == uiState.exposure) null else it)
+            // --- Ensoleillement ---
+            SectionTitle("Ensoleillement")
+            MultiChipGroup("Ensoleillée", SunTime.entries, uiState.sunTimes, { it.label }) {
+                viewModel.toggleSunTime(it)
             }
 
             Spacer(Modifier.height(16.dp))
@@ -116,9 +111,6 @@ fun AddEditTerraceScreen(
             SectionTitle("Confort & équipement")
             CheckboxRow("Couverte", uiState.isCovered, viewModel::updateCovered)
             CheckboxRow("Chauffée", uiState.isHeated, viewModel::updateHeated)
-            ChipGroup("Mobilier", FurnitureType.entries, uiState.furnitureType, { it.label }) {
-                viewModel.updateFurnitureType(if (it == uiState.furnitureType) null else it)
-            }
             ChipGroup("Taille", TerraceSize.entries, uiState.size, { it.label }) {
                 viewModel.updateSize(if (it == uiState.size) null else it)
             }
@@ -200,6 +192,28 @@ private fun <T> ChipGroup(
             FilterChip(
                 selected = option == selected,
                 onClick = { onSelect(option) },
+                label = { Text(labelOf(option)) },
+                modifier = Modifier.padding(end = 4.dp),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun <T> MultiChipGroup(
+    label: String,
+    options: List<T>,
+    selected: Set<T>,
+    labelOf: (T) -> String,
+    onToggle: (T) -> Unit,
+) {
+    Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
+    FlowRow(modifier = Modifier.padding(vertical = 4.dp)) {
+        options.forEach { option ->
+            FilterChip(
+                selected = option in selected,
+                onClick = { onToggle(option) },
                 label = { Text(labelOf(option)) },
                 modifier = Modifier.padding(end = 4.dp),
             )

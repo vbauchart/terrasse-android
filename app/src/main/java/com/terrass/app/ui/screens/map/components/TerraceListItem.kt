@@ -38,7 +38,7 @@ fun TerraceListItem(
             )
 
             val chips = buildList {
-                terrace.sunExposure.exposure?.let { add(it.label) }
+                terrace.sunExposure.sunTimes.forEach { add(it.label) }
                 terrace.environment.noiseLevel?.let { add(it.label) }
                 terrace.service.priceRange?.let { add(it.label) }
             }

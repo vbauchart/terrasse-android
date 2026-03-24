@@ -101,15 +101,13 @@ fun TerraceDetailSheet(
         Spacer(Modifier.height(12.dp))
 
         // Attributs en chips
-        AttributeSection("Exposition") {
-            terrace.sunExposure.orientation?.let { chip(it.label) }
-            terrace.sunExposure.exposure?.let { chip(it.label) }
+        AttributeSection("Ensoleillement") {
+            terrace.sunExposure.sunTimes.forEach { chip(it.label) }
         }
 
         AttributeSection("Confort") {
             if (terrace.comfort.isCovered) chip("Couverte")
             if (terrace.comfort.isHeated) chip("Chauffée")
-            terrace.comfort.furnitureType?.let { chip(it.label) }
             terrace.comfort.size?.let { chip(it.label) }
         }
 

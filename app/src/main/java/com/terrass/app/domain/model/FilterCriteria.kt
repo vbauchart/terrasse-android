@@ -1,11 +1,9 @@
 package com.terrass.app.domain.model
 
 data class FilterCriteria(
-    val exposureTypes: Set<ExposureType> = emptySet(),
-    val orientations: Set<Orientation> = emptySet(),
+    val sunTimes: Set<SunTime> = emptySet(),
     val isCovered: Boolean? = null,
     val isHeated: Boolean? = null,
-    val furnitureTypes: Set<FurnitureType> = emptySet(),
     val sizes: Set<TerraceSize> = emptySet(),
     val noiseLevels: Set<NoiseLevel> = emptySet(),
     val viewQualities: Set<ViewQuality> = emptySet(),
@@ -17,11 +15,9 @@ data class FilterCriteria(
     val activeCount: Int
         get() {
             var count = 0
-            if (exposureTypes.isNotEmpty()) count++
-            if (orientations.isNotEmpty()) count++
+            if (sunTimes.isNotEmpty()) count++
             if (isCovered != null) count++
             if (isHeated != null) count++
-            if (furnitureTypes.isNotEmpty()) count++
             if (sizes.isNotEmpty()) count++
             if (noiseLevels.isNotEmpty()) count++
             if (viewQualities.isNotEmpty()) count++
@@ -33,11 +29,9 @@ data class FilterCriteria(
         }
 
     fun matches(terrace: Terrace): Boolean {
-        if (exposureTypes.isNotEmpty() && terrace.sunExposure.exposure !in exposureTypes) return false
-        if (orientations.isNotEmpty() && terrace.sunExposure.orientation !in orientations) return false
+        if (sunTimes.isNotEmpty() && !terrace.sunExposure.sunTimes.any { it in sunTimes }) return false
         if (isCovered != null && terrace.comfort.isCovered != isCovered) return false
         if (isHeated != null && terrace.comfort.isHeated != isHeated) return false
-        if (furnitureTypes.isNotEmpty() && terrace.comfort.furnitureType !in furnitureTypes) return false
         if (sizes.isNotEmpty() && terrace.comfort.size !in sizes) return false
         if (noiseLevels.isNotEmpty() && terrace.environment.noiseLevel !in noiseLevels) return false
         if (viewQualities.isNotEmpty() && terrace.environment.viewQuality !in viewQualities) return false

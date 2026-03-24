@@ -19,7 +19,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TerasseDatabase =
-        Room.databaseBuilder(context, TerasseDatabase::class.java, "terrasse.db").build()
+        Room.databaseBuilder(context, TerasseDatabase::class.java, "terrasse.db")
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides
     fun provideTerraceDao(db: TerasseDatabase): TerraceDao = db.terraceDao()

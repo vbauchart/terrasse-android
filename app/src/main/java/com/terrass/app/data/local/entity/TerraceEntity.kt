@@ -12,14 +12,12 @@ data class TerraceEntity(
     val longitude: Double,
     val address: String? = null,
 
-    // Sun exposure
-    val orientation: String? = null,
-    @ColumnInfo(name = "sun_exposure") val sunExposure: String? = null,
+    // Sun exposure (comma-separated: "morning,noon,evening")
+    @ColumnInfo(name = "sun_times") val sunTimes: String? = null,
 
     // Comfort
     @ColumnInfo(name = "is_covered") val isCovered: Boolean = false,
     @ColumnInfo(name = "is_heated") val isHeated: Boolean = false,
-    @ColumnInfo(name = "furniture_type") val furnitureType: String? = null,
     val size: String? = null,
 
     // Environment

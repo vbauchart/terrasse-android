@@ -9,7 +9,7 @@ import com.terrass.app.data.local.entity.VoteEntity
 
 @Database(
     entities = [TerraceEntity::class, VoteEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class TerasseDatabase : RoomDatabase() {

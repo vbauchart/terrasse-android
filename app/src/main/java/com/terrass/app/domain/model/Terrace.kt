@@ -25,14 +25,12 @@ data class Terrace(
 }
 
 data class SunExposure(
-    val orientation: Orientation? = null,
-    val exposure: ExposureType? = null,
+    val sunTimes: Set<SunTime> = emptySet(),
 )
 
 data class Comfort(
     val isCovered: Boolean = false,
     val isHeated: Boolean = false,
-    val furnitureType: FurnitureType? = null,
     val size: TerraceSize? = null,
 )
 

@@ -20,13 +20,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.terrass.app.domain.model.ExposureType
 import com.terrass.app.domain.model.FilterCriteria
-import com.terrass.app.domain.model.FurnitureType
 import com.terrass.app.domain.model.NoiseLevel
-import com.terrass.app.domain.model.Orientation
 import com.terrass.app.domain.model.PriceRange
 import com.terrass.app.domain.model.ServiceQuality
+import com.terrass.app.domain.model.SunTime
 import com.terrass.app.domain.model.TerraceSize
 import com.terrass.app.domain.model.ViewQuality
 
@@ -54,32 +52,16 @@ fun FilterSheet(
 
         Spacer(Modifier.height(8.dp))
 
-        // Exposition
-        SectionTitle("Exposition")
+        // Ensoleillement
+        SectionTitle("Ensoleillement")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ExposureType.entries.forEach { item ->
-                val selected = item in filter.exposureTypes
+            SunTime.entries.forEach { item ->
+                val selected = item in filter.sunTimes
                 FilterChip(
                     selected = selected,
                     onClick = {
-                        val new = if (selected) filter.exposureTypes - item else filter.exposureTypes + item
-                        onFilterChange(filter.copy(exposureTypes = new))
-                    },
-                    label = { Text(item.label) },
-                )
-            }
-        }
-
-        // Orientation
-        SectionTitle("Orientation")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Orientation.entries.forEach { item ->
-                val selected = item in filter.orientations
-                FilterChip(
-                    selected = selected,
-                    onClick = {
-                        val new = if (selected) filter.orientations - item else filter.orientations + item
-                        onFilterChange(filter.copy(orientations = new))
+                        val new = if (selected) filter.sunTimes - item else filter.sunTimes + item
+                        onFilterChange(filter.copy(sunTimes = new))
                     },
                     label = { Text(item.label) },
                 )
@@ -91,19 +73,6 @@ fun FilterSheet(
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BooleanChip("Couverte", filter.isCovered) { onFilterChange(filter.copy(isCovered = it)) }
             BooleanChip("Chauffée", filter.isHeated) { onFilterChange(filter.copy(isHeated = it)) }
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FurnitureType.entries.forEach { item ->
-                val selected = item in filter.furnitureTypes
-                FilterChip(
-                    selected = selected,
-                    onClick = {
-                        val new = if (selected) filter.furnitureTypes - item else filter.furnitureTypes + item
-                        onFilterChange(filter.copy(furnitureTypes = new))
-                    },
-                    label = { Text(item.label) },
-                )
-            }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TerraceSize.entries.forEach { item ->
