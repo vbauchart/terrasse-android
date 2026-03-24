@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+        Autorise le trafic HTTP non chiffré en debug uniquement.
+        Nécessaire pour communiquer avec PocketBase en local (http://192.168.x.x:8090).
+        Ce fichier n'est pas inclus dans le build release.
+    -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>
