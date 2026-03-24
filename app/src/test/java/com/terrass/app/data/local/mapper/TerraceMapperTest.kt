@@ -1,7 +1,7 @@
 package com.terrass.app.data.local.mapper
 
 import com.terrass.app.data.local.entity.TerraceEntity
-import com.terrass.app.data.local.entity.TerraceWithVotes
+import com.terrass.app.data.remote.dto.TerraceDto
 import com.terrass.app.domain.model.Comfort
 import com.terrass.app.domain.model.Environment
 import com.terrass.app.domain.model.NoiseLevel
@@ -32,10 +32,10 @@ class TerraceMapperTest {
             roadProximity = "low", noiseLevel = "quiet", viewQuality = "good", hasVegetation = true,
             serviceQuality = "excellent", priceRange = "moderate", cuisineType = "français",
             createdAt = 1000L, status = "active",
+            thumbsUp = 8, thumbsDown = 2,
         )
-        val withVotes = TerraceWithVotes(entity, thumbsUp = 8, thumbsDown = 2)
 
-        val terrace = withVotes.toDomain()
+        val terrace = entity.toDomain()
 
         assertEquals(1, terrace.id)
         assertEquals("Café Soleil", terrace.name)
@@ -60,9 +60,8 @@ class TerraceMapperTest {
     @Test
     fun `toDomain handles null optional fields`() {
         val entity = TerraceEntity(id = 2, name = "Bar", latitude = 48.0, longitude = 2.0)
-        val withVotes = TerraceWithVotes(entity, thumbsUp = 0, thumbsDown = 0)
 
-        val terrace = withVotes.toDomain()
+        val terrace = entity.toDomain()
 
         assertTrue(terrace.sunExposure.sunTimes.isEmpty())
         assertNull(terrace.comfort.size)
@@ -76,7 +75,7 @@ class TerraceMapperTest {
             id = 3, name = "Soleil", latitude = 43.0, longitude = 1.0,
             sunTimes = "morning,noon,evening",
         )
-        val terrace = TerraceWithVotes(entity, 0, 0).toDomain()
+        val terrace = entity.toDomain()
 
         assertEquals(setOf(SunTime.MORNING, SunTime.NOON, SunTime.EVENING), terrace.sunExposure.sunTimes)
     }
@@ -87,7 +86,7 @@ class TerraceMapperTest {
             id = 4, name = "Test", latitude = 43.0, longitude = 1.0,
             sunTimes = "morning,unknown_value",
         )
-        val terrace = TerraceWithVotes(entity, 0, 0).toDomain()
+        val terrace = entity.toDomain()
 
         assertEquals(setOf(SunTime.MORNING), terrace.sunExposure.sunTimes)
     }
@@ -143,9 +142,9 @@ class TerraceMapperTest {
             roadProximity = "high", noiseLevel = "noisy", viewQuality = "none", hasVegetation = false,
             serviceQuality = "poor", priceRange = "expensive", cuisineType = "bar",
             createdAt = 5000L, status = "active",
+            thumbsUp = 3, thumbsDown = 1,
         )
-        val withVotes = TerraceWithVotes(original, 0, 0)
-        val domain = withVotes.toDomain()
+        val domain = original.toDomain()
         val backToEntity = domain.toEntity()
 
         assertEquals(original.id, backToEntity.id)
@@ -154,10 +153,46 @@ class TerraceMapperTest {
         assertEquals(original.roadProximity, backToEntity.roadProximity)
         assertEquals(original.noiseLevel, backToEntity.noiseLevel)
         assertEquals(original.serviceQuality, backToEntity.serviceQuality)
+        assertEquals(original.thumbsUp, backToEntity.thumbsUp)
+        assertEquals(original.thumbsDown, backToEntity.thumbsDown)
         // sun times roundtrip (order may vary)
         assertEquals(
             original.sunTimes?.split(",")?.toSet(),
             backToEntity.sunTimes?.split(",")?.toSet(),
         )
+    }
+
+    @Test
+    fun `TerraceDto toEntity maps all fields correctly`() {
+        val dto = TerraceDto(
+            id = "pb_abc123",
+            name = "Terrasse DTO",
+            latitude = 43.6, longitude = 1.4,
+            address = "2 rue Test",
+            sunTimes = "morning,evening",
+            isCovered = true, isHeated = false,
+            size = "large",
+            roadProximity = "low", noiseLevel = "quiet", viewQuality = "good",
+            hasVegetation = true,
+            serviceQuality = "excellent", priceRange = "moderate", cuisineType = "italien",
+            status = "active",
+            deviceId = "device-uuid",
+            thumbsUp = 5, thumbsDown = 1,
+        )
+
+        val entity = dto.toEntity()
+
+        assertEquals("Terrasse DTO", entity.name)
+        assertEquals(43.6, entity.latitude)
+        assertEquals(1.4, entity.longitude)
+        assertEquals("2 rue Test", entity.address)
+        assertEquals("morning,evening", entity.sunTimes)
+        assertEquals(true, entity.isCovered)
+        assertEquals("large", entity.size)
+        assertEquals("low", entity.roadProximity)
+        assertEquals("pb_abc123", entity.remoteId)
+        assertEquals(true, entity.synced)
+        assertEquals(5, entity.thumbsUp)
+        assertEquals(1, entity.thumbsDown)
     }
 }

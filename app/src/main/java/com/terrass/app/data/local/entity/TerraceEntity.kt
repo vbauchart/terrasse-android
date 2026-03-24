@@ -35,4 +35,10 @@ data class TerraceEntity(
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "updated_at") val updatedAt: Long = System.currentTimeMillis(),
     val status: String = "active",
+
+    // Sync
+    @ColumnInfo(name = "remote_id") val remoteId: String? = null,
+    @ColumnInfo(name = "synced") val synced: Boolean = false,
+    @ColumnInfo(name = "thumbs_up") val thumbsUp: Int = 0,
+    @ColumnInfo(name = "thumbs_down") val thumbsDown: Int = 0,
 )

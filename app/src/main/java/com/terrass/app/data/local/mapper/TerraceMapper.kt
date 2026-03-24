@@ -1,7 +1,7 @@
 package com.terrass.app.data.local.mapper
 
 import com.terrass.app.data.local.entity.TerraceEntity
-import com.terrass.app.data.local.entity.TerraceWithVotes
+import com.terrass.app.data.remote.dto.TerraceDto
 import com.terrass.app.domain.model.Comfort
 import com.terrass.app.domain.model.Environment
 import com.terrass.app.domain.model.NoiseLevel
@@ -16,39 +16,39 @@ import com.terrass.app.domain.model.TerraceSize
 import com.terrass.app.domain.model.TerraceStatus
 import com.terrass.app.domain.model.ViewQuality
 
-fun TerraceWithVotes.toDomain(): Terrace = Terrace(
-    id = terrace.id,
-    name = terrace.name,
-    latitude = terrace.latitude,
-    longitude = terrace.longitude,
-    address = terrace.address,
+fun TerraceEntity.toDomain(): Terrace = Terrace(
+    id = id,
+    name = name,
+    latitude = latitude,
+    longitude = longitude,
+    address = address,
     sunExposure = SunExposure(
-        sunTimes = terrace.sunTimes
+        sunTimes = sunTimes
             ?.split(",")
             ?.mapNotNull { SunTime.fromValue(it.trim()) }
             ?.toSet()
             ?: emptySet(),
     ),
     comfort = Comfort(
-        isCovered = terrace.isCovered,
-        isHeated = terrace.isHeated,
-        size = TerraceSize.fromValue(terrace.size),
+        isCovered = isCovered,
+        isHeated = isHeated,
+        size = TerraceSize.fromValue(size),
     ),
     environment = Environment(
-        roadProximity = RoadProximity.fromValue(terrace.roadProximity),
-        noiseLevel = NoiseLevel.fromValue(terrace.noiseLevel),
-        viewQuality = ViewQuality.fromValue(terrace.viewQuality),
-        hasVegetation = terrace.hasVegetation,
+        roadProximity = RoadProximity.fromValue(roadProximity),
+        noiseLevel = NoiseLevel.fromValue(noiseLevel),
+        viewQuality = ViewQuality.fromValue(viewQuality),
+        hasVegetation = hasVegetation,
     ),
     service = Service(
-        quality = ServiceQuality.fromValue(terrace.serviceQuality),
-        priceRange = PriceRange.fromValue(terrace.priceRange),
-        cuisineType = terrace.cuisineType,
+        quality = ServiceQuality.fromValue(serviceQuality),
+        priceRange = PriceRange.fromValue(priceRange),
+        cuisineType = cuisineType,
     ),
     thumbsUp = thumbsUp,
     thumbsDown = thumbsDown,
-    createdAt = terrace.createdAt,
-    status = TerraceStatus.fromValue(terrace.status),
+    createdAt = createdAt,
+    status = TerraceStatus.fromValue(status),
 )
 
 fun Terrace.toEntity(): TerraceEntity = TerraceEntity(
@@ -72,4 +72,29 @@ fun Terrace.toEntity(): TerraceEntity = TerraceEntity(
     createdAt = createdAt,
     updatedAt = System.currentTimeMillis(),
     status = status.value,
+    thumbsUp = thumbsUp,
+    thumbsDown = thumbsDown,
+)
+
+fun TerraceDto.toEntity(): TerraceEntity = TerraceEntity(
+    name = name,
+    latitude = latitude,
+    longitude = longitude,
+    address = address,
+    sunTimes = sunTimes,
+    isCovered = isCovered,
+    isHeated = isHeated,
+    size = size,
+    roadProximity = roadProximity,
+    noiseLevel = noiseLevel,
+    viewQuality = viewQuality,
+    hasVegetation = hasVegetation,
+    serviceQuality = serviceQuality,
+    priceRange = priceRange,
+    cuisineType = cuisineType,
+    status = status,
+    remoteId = id,
+    synced = true,
+    thumbsUp = thumbsUp,
+    thumbsDown = thumbsDown,
 )

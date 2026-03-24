@@ -18,6 +18,14 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val pocketbaseUrl = rootProject.file("local.properties")
+            .takeIf { it.exists() }
+            ?.readLines()
+            ?.firstOrNull { it.startsWith("pocketbaseUrl=") }
+            ?.substringAfter("=")
+            ?: findProperty("pocketbaseUrl")?.toString()
+            ?: "http://localhost:8090"
+        buildConfigField("String", "POCKETBASE_URL", "\"$pocketbaseUrl\"")
     }
 
     buildTypes {
@@ -44,6 +52,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     @Suppress("UnstableApiUsage")
