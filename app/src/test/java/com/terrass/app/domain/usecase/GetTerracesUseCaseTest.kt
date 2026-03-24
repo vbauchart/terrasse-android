@@ -1,6 +1,9 @@
 package com.terrass.app.domain.usecase
 
 import app.cash.turbine.test
+import com.terrass.app.domain.model.Environment
+import com.terrass.app.domain.model.FilterCriteria
+import com.terrass.app.domain.model.NoiseLevel
 import com.terrass.app.domain.model.Terrace
 import com.terrass.app.domain.repository.TerraceRepository
 import io.mockk.every
@@ -46,6 +49,39 @@ class GetTerracesUseCaseTest {
         useCase().test {
             val result = awaitItem()
             assertEquals(0, result.size)
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `invoke with filter returns only matching terraces`() = runTest {
+        val terraces = listOf(
+            Terrace(id = 1, name = "Calme", latitude = 43.6, longitude = 1.4,
+                environment = Environment(noiseLevel = NoiseLevel.QUIET)),
+            Terrace(id = 2, name = "Bruyant", latitude = 43.7, longitude = 1.5,
+                environment = Environment(noiseLevel = NoiseLevel.NOISY)),
+        )
+        every { repository.getAllTerraces() } returns flowOf(terraces)
+
+        val filter = FilterCriteria(noiseLevels = setOf(NoiseLevel.QUIET))
+        useCase(filter).test {
+            val result = awaitItem()
+            assertEquals(1, result.size)
+            assertEquals("Calme", result[0].name)
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `invoke with empty filter returns all terraces`() = runTest {
+        val terraces = listOf(
+            Terrace(id = 1, name = "A", latitude = 43.6, longitude = 1.4),
+            Terrace(id = 2, name = "B", latitude = 43.7, longitude = 1.5),
+        )
+        every { repository.getAllTerraces() } returns flowOf(terraces)
+
+        useCase(FilterCriteria()).test {
+            assertEquals(2, awaitItem().size)
             awaitComplete()
         }
     }

@@ -3,6 +3,9 @@ package com.terrass.app.ui.screens.map
 import android.location.Location
 import app.cash.turbine.test
 import com.terrass.app.data.location.LocationProvider
+import com.terrass.app.domain.model.Environment
+import com.terrass.app.domain.model.FilterCriteria
+import com.terrass.app.domain.model.NoiseLevel
 import com.terrass.app.domain.model.Terrace
 import com.terrass.app.domain.usecase.DeleteTerraceUseCase
 import com.terrass.app.domain.usecase.GetTerracesUseCase
@@ -45,7 +48,7 @@ class MapViewModelTest {
         getTerracesUseCase = mockk()
         voteTerraceUseCase = mockk()
         deleteTerraceUseCase = mockk()
-        every { getTerracesUseCase() } returns flowOf(emptyList())
+        every { getTerracesUseCase(any()) } returns flowOf(emptyList())
         coJustRun { voteTerraceUseCase(any(), any()) }
         coJustRun { deleteTerraceUseCase(any()) }
     }
@@ -72,7 +75,7 @@ class MapViewModelTest {
         val terraces = listOf(
             Terrace(id = 1, name = "Café A", latitude = 43.6, longitude = 1.4),
         )
-        every { getTerracesUseCase() } returns flowOf(terraces)
+        every { getTerracesUseCase(any()) } returns flowOf(terraces)
 
         viewModel = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
@@ -107,7 +110,7 @@ class MapViewModelTest {
             Terrace(id = 1, name = "Café A", latitude = 43.6, longitude = 1.4),
             Terrace(id = 2, name = "Bar B", latitude = 43.7, longitude = 1.5),
         )
-        every { getTerracesUseCase() } returns flowOf(terraces)
+        every { getTerracesUseCase(any()) } returns flowOf(terraces)
 
         viewModel = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
@@ -119,7 +122,7 @@ class MapViewModelTest {
     @Test
     fun `onDismissDetail clears selection`() = runTest {
         val terraces = listOf(Terrace(id = 1, name = "Café", latitude = 43.6, longitude = 1.4))
-        every { getTerracesUseCase() } returns flowOf(terraces)
+        every { getTerracesUseCase(any()) } returns flowOf(terraces)
 
         viewModel = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
@@ -145,7 +148,7 @@ class MapViewModelTest {
     @Test
     fun `onDelete calls use case and clears selection`() = runTest {
         val terraces = listOf(Terrace(id = 1, name = "Café", latitude = 43.6, longitude = 1.4))
-        every { getTerracesUseCase() } returns flowOf(terraces)
+        every { getTerracesUseCase(any()) } returns flowOf(terraces)
 
         viewModel = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
@@ -215,5 +218,69 @@ class MapViewModelTest {
 
         viewModel.onDismissLocationError()
         assertNull(viewModel.uiState.value.locationError)
+    }
+
+    @Test
+    fun `onFilterChange updates filter and reloads terraces`() = runTest {
+        val allTerraces = listOf(
+            Terrace(id = 1, name = "Calme", latitude = 43.6, longitude = 1.4,
+                environment = Environment(noiseLevel = NoiseLevel.QUIET)),
+            Terrace(id = 2, name = "Bruyant", latitude = 43.7, longitude = 1.5,
+                environment = Environment(noiseLevel = NoiseLevel.NOISY)),
+        )
+        every { getTerracesUseCase(FilterCriteria()) } returns flowOf(allTerraces)
+        val quietFilter = FilterCriteria(noiseLevels = setOf(NoiseLevel.QUIET))
+        every { getTerracesUseCase(quietFilter) } returns flowOf(listOf(allTerraces[0]))
+
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.terraces.size)
+
+        viewModel.onFilterChange(quietFilter)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.terraces.size)
+        assertEquals("Calme", viewModel.uiState.value.terraces[0].name)
+        assertEquals(quietFilter, viewModel.uiState.value.filter)
+    }
+
+    @Test
+    fun `onResetFilter clears all filters`() = runTest {
+        every { getTerracesUseCase(any()) } returns flowOf(emptyList())
+
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onFilterChange(FilterCriteria(noiseLevels = setOf(NoiseLevel.QUIET)))
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.filter.activeCount > 0)
+
+        viewModel.onResetFilter()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(0, viewModel.uiState.value.filter.activeCount)
+    }
+
+    @Test
+    fun `onTerraceSelected sets terrace and zooms`() = runTest {
+        val terrace = Terrace(id = 1, name = "Café", latitude = 43.6, longitude = 1.4)
+        every { getTerracesUseCase(any()) } returns flowOf(listOf(terrace))
+
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onTerraceSelected(terrace)
+        val state = viewModel.uiState.value
+        assertEquals("Café", state.selectedTerrace?.name)
+        assertEquals(43.6, state.center.latitude, 0.0001)
+        assertEquals(17.0, state.zoom, 0.1)
+    }
+
+    @Test
+    fun `onSheetModeChange switches mode`() = runTest {
+        viewModel = createViewModel()
+        assertEquals(SheetMode.LIST, viewModel.uiState.value.sheetMode)
+
+        viewModel.onSheetModeChange(SheetMode.FILTER)
+        assertEquals(SheetMode.FILTER, viewModel.uiState.value.sheetMode)
     }
 }

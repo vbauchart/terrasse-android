@@ -4,11 +4,13 @@ import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.terrass.app.data.location.LocationProvider
+import com.terrass.app.domain.model.FilterCriteria
 import com.terrass.app.domain.model.Terrace
 import com.terrass.app.domain.usecase.DeleteTerraceUseCase
 import com.terrass.app.domain.usecase.GetTerracesUseCase
 import com.terrass.app.domain.usecase.VoteTerraceUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,6 +18,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import javax.inject.Inject
+
+enum class SheetMode { LIST, FILTER }
 
 data class MapUiState(
     val center: GeoPoint = GeoPoint(48.8566, 2.3522),
@@ -27,6 +31,8 @@ data class MapUiState(
     val selectedTerrace: Terrace? = null,
     val isLocating: Boolean = false,
     val locationError: String? = null,
+    val filter: FilterCriteria = FilterCriteria(),
+    val sheetMode: SheetMode = SheetMode.LIST,
 )
 
 @HiltViewModel
@@ -40,19 +46,21 @@ class MapViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState.asStateFlow()
 
+    private var terracesJob: Job? = null
+
     init {
         loadTerraces()
     }
 
     private fun loadTerraces() {
-        viewModelScope.launch {
-            getTerracesUseCase()
+        terracesJob?.cancel()
+        terracesJob = viewModelScope.launch {
+            getTerracesUseCase(_uiState.value.filter)
                 .catch { /* silently handle */ }
                 .collect { terraces ->
                     val selected = _uiState.value.selectedTerrace
                     _uiState.value = _uiState.value.copy(
                         terraces = terraces,
-                        // Rafraîchir la terrasse sélectionnée si elle existe encore
                         selectedTerrace = selected?.let { sel ->
                             terraces.find { it.id == sel.id }
                         },
@@ -136,6 +144,14 @@ class MapViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(selectedTerrace = terrace)
     }
 
+    fun onTerraceSelected(terrace: Terrace) {
+        _uiState.value = _uiState.value.copy(
+            selectedTerrace = terrace,
+            center = GeoPoint(terrace.latitude, terrace.longitude),
+            zoom = 17.0,
+        )
+    }
+
     fun onDismissDetail() {
         _uiState.value = _uiState.value.copy(selectedTerrace = null)
     }
@@ -151,5 +167,18 @@ class MapViewModel @Inject constructor(
             deleteTerraceUseCase(terraceId)
             _uiState.value = _uiState.value.copy(selectedTerrace = null)
         }
+    }
+
+    fun onFilterChange(newFilter: FilterCriteria) {
+        _uiState.value = _uiState.value.copy(filter = newFilter)
+        loadTerraces()
+    }
+
+    fun onResetFilter() {
+        onFilterChange(FilterCriteria())
+    }
+
+    fun onSheetModeChange(mode: SheetMode) {
+        _uiState.value = _uiState.value.copy(sheetMode = mode)
     }
 }
