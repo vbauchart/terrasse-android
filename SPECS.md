@@ -267,38 +267,206 @@ com/terrass/app/
 ## 4. Dépendances à ajouter
 
 ```toml
-# gradle/libs.versions.toml
+# gradle/libs.versions.toml — versions
 room = "2.6.1"
 playServicesLocation = "21.3.0"
+junit5 = "5.10.2"
+coroutinesTest = "1.9.0"
+turbine = "1.2.0"
+mockk = "1.13.13"
 
-# libraries
+# libraries — production
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+
+# libraries — test
+junit5-api = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.ref = "junit5" }
+junit5-engine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junit5" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 ```
 
 ---
 
-## 5. Phases d'implémentation
+## 5. Règles de développement
 
-| Phase | Contenu | Fichiers clés |
-|-------|---------|---------------|
-| **1. Data** | Enums, modèles domain, entities Room, DAOs, database, mappers, repository, DI modules | `domain/model/*`, `data/**`, `di/*` |
-| **2. Carte** | Wrapper osmdroid Compose, init osmdroid, MapViewModel, localisation GPS, permissions | `ui/components/map/*`, `ui/screens/map/*`, `data/location/*` |
-| **3. CRUD + Votes** | Use cases, formulaire ajout/édition, navigation, marqueurs sur carte, votes | `domain/usecase/*`, `ui/screens/addterrace/*`, `ui/TerassApp.kt` |
-| **4. Liste + Filtres** | Bottom sheet liste, items, FilterSheet, FilterCriteria wiring | `ui/screens/map/components/*` |
-| **5. Polish** | Reverse geocoding, icônes marqueurs custom, états vides, animations | Transversal |
+### 5.1 Tests unitaires obligatoires
+
+Chaque classe de haut niveau doit avoir des tests unitaires associés :
+
+| Couche | Classes testées | Framework |
+|--------|----------------|-----------|
+| Domain | Tous les use cases, `FilterCriteria.matches()`, modèles (votePercentage, etc.) | JUnit 5 + Coroutines Test |
+| Data | DAOs (Room in-memory), Mappers, `TerraceRepositoryImpl` | JUnit 5 + Room Testing |
+| UI | ViewModels (états, actions) | JUnit 5 + Turbine (Flow testing) |
+
+Structure des tests :
+```
+app/src/test/java/com/terrass/app/          -- tests unitaires (JVM)
+app/src/androidTest/java/com/terrass/app/   -- tests instrumentés (Room)
+```
+
+Dépendances de test à ajouter :
+```toml
+junit5 = "5.10.2"
+coroutines-test = "1.9.0"
+turbine = "1.2.0"
+mockk = "1.13.13"
+room-testing = "2.6.1"
+```
+
+### 5.2 Principe : MVP testable à chaque sprint
+
+Chaque sprint produit un APK installable avec une fonctionnalité complète de bout en bout.
+Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 
 ---
 
-## 6. Vérification
+## 6. Sprints d'implémentation
 
+### Sprint 1 — La carte qui marche
+**Objectif** : L'app s'ouvre sur une carte OSM interactive centrée sur la position de l'utilisateur.
+
+**Contenu** :
+- Init osmdroid dans `TerassApplication`
+- Wrapper Compose `OsmMapView` (AndroidView + lifecycle)
+- `MapViewModel` avec gestion de la position GPS
+- `LocationProvider` (wrapper FusedLocationProviderClient)
+- Demande de permission localisation
+- DI : `AppModule` fournit `LocationProvider`
+
+**Tests unitaires** :
+- `MapViewModelTest` : état initial, mise à jour position, gestion permission refusée
+
+**Validation sur device** :
+- [ ] L'app s'ouvre sur une carte OpenStreetMap
+- [ ] La carte est interactive (zoom, pan)
+- [ ] La permission GPS est demandée
+- [ ] La carte se centre sur la position de l'utilisateur
 - [ ] Le build compile (`./gradlew assembleDebug`)
-- [ ] La carte s'affiche et se déplace
-- [ ] Long-press ouvre le formulaire d'ajout avec les bonnes coordonnées
-- [ ] Une terrasse ajoutée apparaît comme marqueur sur la carte
-- [ ] Le bottom sheet liste affiche les terrasses filtrées
-- [ ] Les filtres réduisent la liste et les marqueurs
-- [ ] Le vote pouce haut/bas met à jour le pourcentage affiché
-- [ ] La suppression retire le marqueur de la carte
+- [ ] Les tests passent (`./gradlew test`)
+
+---
+
+### Sprint 2 — Ajouter une terrasse
+**Objectif** : L'utilisateur peut ajouter une terrasse (nom + position) et la voir apparaître comme marqueur sur la carte.
+
+**Contenu** :
+- Enums (`Enums.kt`), modèles domain (`Terrace.kt`, `SunExposure`, `Comfort`, `Environment`, `Service`)
+- Entities Room (`TerraceEntity`, `VoteEntity`, `TerraceWithVotes`)
+- `TerraceDao`, `VoteDao`, `TerasseDatabase`
+- `TerraceMapper` (entity ↔ domain)
+- `TerraceRepository` (interface) + `TerraceRepositoryImpl`
+- `AddTerraceUseCase`, `GetTerracesUseCase`
+- DI : `DatabaseModule`, `RepositoryModule`
+- `AddEditTerraceScreen` + `AddEditTerraceViewModel` (formulaire avec les 4 sections d'attributs)
+- Navigation : route `"terrace/add?lat={lat}&lng={lng}"`
+- Long-press sur la carte → naviguer vers le formulaire d'ajout
+- FAB "+" → ajouter depuis position GPS
+- Affichage des marqueurs sur la carte depuis la base de données
+
+**Tests unitaires** :
+- `TerraceMapperTest` : conversion entity → domain et domain → entity
+- `AddTerraceUseCaseTest` : validation nom vide, insertion OK
+- `GetTerracesUseCaseTest` : retourne les terrasses, flow réactif
+- `AddEditTerraceViewModelTest` : validation du formulaire, sauvegarde
+- `TerraceDao` tests instrumentés : insert, getAll, getById
+
+**Validation sur device** :
+- [ ] Long-press sur la carte ouvre le formulaire pré-rempli avec les coordonnées
+- [ ] FAB "+" ouvre le formulaire avec la position GPS
+- [ ] Remplir le nom + attributs et sauvegarder fonctionne
+- [ ] Le marqueur apparaît sur la carte après l'ajout
+- [ ] Retour en arrière depuis le formulaire annule l'ajout
+- [ ] Les tests passent (`./gradlew test`)
+
+---
+
+### Sprint 3 — Détail, édition, suppression et votes
+**Objectif** : L'utilisateur peut consulter une terrasse, la modifier, la supprimer et voter.
+
+**Contenu** :
+- `GetTerraceDetailUseCase`, `UpdateTerraceUseCase`, `DeleteTerraceUseCase`, `VoteTerraceUseCase`
+- `TerraceDetailSheet` (bottom sheet de détail avec tous les attributs)
+- Tap sur marqueur → affiche le détail en bottom sheet
+- Boutons pouce haut / pouce bas dans le détail
+- `VoteIndicator` composant (affiche "82% positif · 17 avis")
+- Bouton modifier → navigation vers `"terrace/{id}/edit"` (réutilise `AddEditTerraceScreen`)
+- Bouton supprimer avec confirmation dialog
+- Couleur des marqueurs selon le % de votes (vert/rouge/gris)
+
+**Tests unitaires** :
+- `VoteTerraceUseCaseTest` : insertion vote, calcul pourcentage
+- `UpdateTerraceUseCaseTest` : mise à jour OK
+- `DeleteTerraceUseCaseTest` : suppression OK
+- `GetTerraceDetailUseCaseTest` : terrasse avec votes agrégés
+- `Terrace.votePercentage` : test des cas limites (0 votes, 100%, 0%)
+- `VoteDao` tests instrumentés : insert, agrégation
+
+**Validation sur device** :
+- [ ] Tap sur un marqueur affiche le bottom sheet de détail
+- [ ] Les attributs sont affichés correctement
+- [ ] Pouce haut/bas incrémente le compteur et met à jour le %
+- [ ] Modifier ouvre le formulaire pré-rempli, la sauvegarde met à jour le marqueur
+- [ ] Supprimer (avec confirmation) retire le marqueur de la carte
+- [ ] La couleur du marqueur change selon le % de votes
+- [ ] Les tests passent (`./gradlew test`)
+
+---
+
+### Sprint 4 — Liste et filtres
+**Objectif** : L'utilisateur peut voir la liste des terrasses et filtrer par attributs.
+
+**Contenu** :
+- `BottomSheetScaffold` intégré dans `MapScreen`
+- `TerraceListContent` (LazyColumn) + `TerraceListItem`
+- `AttributeChip` composant réutilisable
+- `FilterCriteria` modèle + logique de filtrage dans `GetTerracesUseCase`
+- `FilterSheet` avec chip groups par catégorie
+- Badge nombre de filtres actifs sur l'icône filtre
+- Tap sur un item de la liste → zoom sur le marqueur + affiche détail
+- Les filtres masquent aussi les marqueurs de la carte
+
+**Tests unitaires** :
+- `FilterCriteria.matches()` : tous les critères individuels + combinaisons
+- `GetTerracesUseCaseTest` : filtrage en mémoire (chaque attribut, combinaisons)
+- `MapViewModelTest` : changement de filtres met à jour la liste et les marqueurs
+
+**Validation sur device** :
+- [ ] Swipe-up depuis le peek affiche la liste des terrasses
+- [ ] Le peek affiche le nombre de terrasses ("12 terrasses")
+- [ ] Chaque item affiche nom, % positif, chips d'attributs
+- [ ] Tap sur un item zoom sur le marqueur et affiche le détail
+- [ ] Les filtres réduisent la liste ET les marqueurs sur la carte
+- [ ] Le badge indique le nombre de filtres actifs
+- [ ] Réinitialiser les filtres restaure la liste complète
+- [ ] Les tests passent (`./gradlew test`)
+
+---
+
+### Sprint 5 — Polish et finitions
+**Objectif** : L'app est agréable à utiliser avec des finitions soignées.
+
+**Contenu** :
+- Reverse geocoding pour afficher l'adresse (Android Geocoder, best-effort)
+- Icônes marqueurs custom (cercles colorés avec graduation)
+- États vides ("Aucune terrasse" / "Aucun résultat pour ces filtres")
+- Animations de transition (sheet, navigation)
+- Bouton de recentrage GPS sur la carte
+- Gestion des erreurs et edge cases (pas de GPS, pas de réseau pour les tuiles)
+- Revue générale et nettoyage du code
+
+**Tests unitaires** :
+- Tests des edge cases : pas de réseau, permission refusée, base vide
+
+**Validation sur device** :
+- [ ] L'adresse s'affiche dans le détail quand disponible
+- [ ] Les marqueurs ont des icônes colorées distinctes
+- [ ] Les états vides sont affichés correctement
+- [ ] L'app reste fonctionnelle sans réseau (tuiles en cache, données locales)
+- [ ] Les transitions sont fluides
+- [ ] Les tests passent (`./gradlew test`)
