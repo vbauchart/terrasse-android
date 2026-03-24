@@ -18,6 +18,9 @@ interface VoteDao {
     @Query("SELECT * FROM votes WHERE id = :id")
     suspend fun getById(id: Long): VoteEntity?
 
+    @Query("SELECT * FROM votes WHERE terrace_id = :terraceId AND device_id = :deviceId LIMIT 1")
+    suspend fun getByTerraceAndDevice(terraceId: Long, deviceId: String): VoteEntity?
+
     @Query("SELECT * FROM votes WHERE synced = 0")
     suspend fun getUnsynced(): List<VoteEntity>
 }

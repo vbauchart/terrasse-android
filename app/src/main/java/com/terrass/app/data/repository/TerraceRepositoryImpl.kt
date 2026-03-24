@@ -5,6 +5,7 @@ import com.terrass.app.data.local.dao.VoteDao
 import com.terrass.app.data.local.entity.VoteEntity
 import com.terrass.app.data.local.mapper.toDomain
 import com.terrass.app.data.local.mapper.toEntity
+import com.terrass.app.data.preferences.DeviceIdProvider
 import com.terrass.app.data.remote.PocketBaseService
 import com.terrass.app.domain.model.SyncStatus
 import com.terrass.app.domain.model.Terrace
@@ -25,6 +26,7 @@ class TerraceRepositoryImpl @Inject constructor(
     private val terraceDao: TerraceDao,
     private val voteDao: VoteDao,
     private val pocketBaseService: PocketBaseService,
+    private val deviceIdProvider: DeviceIdProvider,
     private val appScope: CoroutineScope,
 ) : TerraceRepository {
 
@@ -139,17 +141,42 @@ class TerraceRepositoryImpl @Inject constructor(
     }
 
     override suspend fun vote(terraceId: Long, isPositive: Boolean) {
-        val entity = terraceDao.getById(terraceId) ?: return
-        val updated = if (isPositive) entity.copy(thumbsUp = entity.thumbsUp + 1)
-                      else entity.copy(thumbsDown = entity.thumbsDown + 1)
-        terraceDao.update(updated)
-        val voteId = voteDao.insert(VoteEntity(terraceId = terraceId, isPositive = isPositive))
-        entity.remoteId?.let { remoteId ->
-            appScope.launch {
-                runCatching { pocketBaseService.addVote(remoteId, isPositive) }
-                    .onSuccess {
-                        voteDao.getById(voteId)?.let { voteDao.update(it.copy(synced = true)) }
+        val deviceId = deviceIdProvider.getDeviceId()
+        val terrace = terraceDao.getById(terraceId) ?: return
+        val existing = voteDao.getByTerraceAndDevice(terraceId, deviceId)
+
+        when {
+            existing != null && existing.isPositive == isPositive -> return // déjà voté dans ce sens
+            existing != null -> {
+                // Changement de vote : inverser les compteurs
+                val updated = terrace.copy(
+                    thumbsUp = if (isPositive) terrace.thumbsUp + 1 else terrace.thumbsUp - 1,
+                    thumbsDown = if (isPositive) terrace.thumbsDown - 1 else terrace.thumbsDown + 1,
+                )
+                terraceDao.update(updated)
+                val updatedVote = existing.copy(isPositive = isPositive, synced = false)
+                voteDao.update(updatedVote)
+                terrace.remoteId?.let { remoteId ->
+                    appScope.launch {
+                        runCatching { pocketBaseService.updateVote(remoteId, existing.remoteId, isPositive) }
+                            .onSuccess { voteDao.update(updatedVote.copy(synced = true)) }
                     }
+                }
+            }
+            else -> {
+                // Premier vote
+                val updated = if (isPositive) terrace.copy(thumbsUp = terrace.thumbsUp + 1)
+                              else terrace.copy(thumbsDown = terrace.thumbsDown + 1)
+                terraceDao.update(updated)
+                val voteId = voteDao.insert(VoteEntity(terraceId = terraceId, isPositive = isPositive, deviceId = deviceId))
+                terrace.remoteId?.let { remoteId ->
+                    appScope.launch {
+                        runCatching { pocketBaseService.addVote(remoteId, isPositive) }
+                            .onSuccess { voteRemoteId ->
+                                voteDao.getById(voteId)?.let { voteDao.update(it.copy(remoteId = voteRemoteId, synced = true)) }
+                            }
+                    }
+                }
             }
         }
     }

@@ -103,7 +103,7 @@ class PocketBaseService @Inject constructor(
         }
     }
 
-    suspend fun addVote(terraceRemoteId: String, isPositive: Boolean) = withContext(Dispatchers.IO) {
+    suspend fun addVote(terraceRemoteId: String, isPositive: Boolean): String = withContext(Dispatchers.IO) {
         val deviceId = deviceIdProvider.getDeviceId()
         // Create vote record
         val voteUrl = URL("$baseUrl/api/collections/votes/records")
@@ -119,29 +119,49 @@ class PocketBaseService @Inject constructor(
             put("device_id", deviceId)
         }.toString()
         voteConn.outputStream.use { it.write(voteBody.toByteArray()) }
-        try {
-            voteConn.inputStream.bufferedReader().readText()
+        val voteRemoteId = try {
+            JSONObject(voteConn.inputStream.bufferedReader().readText()).getString("id")
         } finally {
             voteConn.disconnect()
         }
 
         // PATCH increment counter on terrace
-        val field = if (isPositive) "thumbs_up" else "thumbs_down"
-        val patchUrl = URL("$baseUrl/api/collections/terraces/records/$terraceRemoteId")
-        val patchConn = patchUrl.openConnection() as HttpURLConnection
-        patchConn.requestMethod = "PATCH"
-        patchConn.setRequestProperty("Content-Type", "application/json")
-        patchConn.doOutput = true
-        patchConn.connectTimeout = 10_000
-        patchConn.readTimeout = 10_000
-        // PocketBase supports increment via "+N" syntax
-        val patchBody = JSONObject().apply { put(field, "+1") }.toString()
-        patchConn.outputStream.use { it.write(patchBody.toByteArray()) }
-        try {
-            patchConn.inputStream.bufferedReader().readText()
-        } finally {
-            patchConn.disconnect()
+        patchTerraceCounter(terraceRemoteId, up = if (isPositive) 1 else 0, down = if (isPositive) 0 else 1)
+        voteRemoteId
+    }
+
+    suspend fun updateVote(terraceRemoteId: String, voteRemoteId: String?, isPositive: Boolean) = withContext(Dispatchers.IO) {
+        voteRemoteId?.let { id ->
+            val url = URL("$baseUrl/api/collections/votes/records/$id")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "PATCH"
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.doOutput = true
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 10_000
+            val body = JSONObject().apply { put("is_positive", isPositive) }.toString()
+            conn.outputStream.use { it.write(body.toByteArray()) }
+            try { conn.inputStream.bufferedReader().readText() } finally { conn.disconnect() }
         }
+        // Adjust counters: +1 new direction, -1 old direction
+        val upDelta = if (isPositive) 1 else -1
+        patchTerraceCounter(terraceRemoteId, up = upDelta, down = -upDelta)
+    }
+
+    private fun patchTerraceCounter(terraceRemoteId: String, up: Int, down: Int) {
+        val url = URL("$baseUrl/api/collections/terraces/records/$terraceRemoteId")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "PATCH"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 10_000
+        val body = JSONObject().apply {
+            if (up != 0) put("thumbs_up", "${if (up > 0) "+" else ""}$up")
+            if (down != 0) put("thumbs_down", "${if (down > 0) "+" else ""}$down")
+        }.toString()
+        conn.outputStream.use { it.write(body.toByteArray()) }
+        try { conn.inputStream.bufferedReader().readText() } finally { conn.disconnect() }
     }
 
     fun subscribeToEvents(): Flow<PocketBaseEvent> = flow {
