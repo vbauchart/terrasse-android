@@ -31,8 +31,8 @@ fun TerassApp() {
     ) {
         composable("map") {
             MapScreen(
-                onNavigateToAdd = { lat, lng ->
-                    navController.navigate("terrace/add?lat=$lat&lng=$lng")
+                onNavigateToAdd = { lat, lng, zoom ->
+                    navController.navigate("terrace/add?lat=$lat&lng=$lng&zoom=$zoom")
                 },
                 onNavigateToEdit = { id ->
                     navController.navigate("terrace/$id/edit")
@@ -48,10 +48,11 @@ fun TerassApp() {
         }
 
         composable(
-            route = "terrace/add?lat={lat}&lng={lng}",
+            route = "terrace/add?lat={lat}&lng={lng}&zoom={zoom}",
             arguments = listOf(
                 navArgument("lat") { type = NavType.StringType; defaultValue = "48.8566" },
                 navArgument("lng") { type = NavType.StringType; defaultValue = "2.3522" },
+                navArgument("zoom") { type = NavType.StringType; defaultValue = "12.0" },
             ),
         ) {
             AddEditTerraceScreen(

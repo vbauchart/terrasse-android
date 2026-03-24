@@ -13,7 +13,7 @@ import javax.inject.Singleton
 @Singleton
 class NominatimService @Inject constructor() {
 
-    suspend fun search(query: String): List<PlaceResult> = withContext(Dispatchers.IO) {
+    suspend fun search(query: String, viewbox: String? = null): List<PlaceResult> = withContext(Dispatchers.IO) {
         val encodedQuery = URLEncoder.encode(query, "UTF-8")
         val url = URL(
             "https://nominatim.openstreetmap.org/search" +
@@ -21,7 +21,8 @@ class NominatimService @Inject constructor() {
                 "&format=json" +
                 "&addressdetails=1" +
                 "&limit=10" +
-                "&accept-language=fr"
+                "&accept-language=fr" +
+                (viewbox?.let { "&viewbox=$it&bounded=1" } ?: "")
         )
 
         val connection = url.openConnection() as HttpURLConnection

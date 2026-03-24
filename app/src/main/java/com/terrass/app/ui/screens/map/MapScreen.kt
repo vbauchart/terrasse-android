@@ -54,7 +54,7 @@ import com.terrass.app.ui.screens.map.components.TerraceListContent
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
-    onNavigateToAdd: (lat: Double, lng: Double) -> Unit,
+    onNavigateToAdd: (lat: Double, lng: Double, zoom: Double) -> Unit,
     onNavigateToEdit: (Long) -> Unit = {},
     onNavigateToStatus: () -> Unit = {},
     viewModel: MapViewModel = hiltViewModel(),
@@ -166,14 +166,14 @@ fun MapScreen(
                     userLocation = uiState.userLocation,
                     onMarkerClick = { terraceId -> viewModel.onMarkerClick(terraceId) },
                     onMapLongClick = { geoPoint ->
-                        onNavigateToAdd(geoPoint.latitude, geoPoint.longitude)
+                        onNavigateToAdd(geoPoint.latitude, geoPoint.longitude, uiState.zoom)
                     },
                 )
 
                 FloatingActionButton(
                     onClick = {
                         val loc = uiState.userLocation ?: uiState.center
-                        onNavigateToAdd(loc.latitude, loc.longitude)
+                        onNavigateToAdd(loc.latitude, loc.longitude, uiState.zoom)
                     },
                     modifier = Modifier
                         .align(Alignment.BottomEnd)

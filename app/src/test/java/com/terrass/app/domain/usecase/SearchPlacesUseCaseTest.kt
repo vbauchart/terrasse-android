@@ -33,18 +33,18 @@ class SearchPlacesUseCaseTest {
                 address = "172 Bd Saint-Germain, Paris",
             )
         )
-        coEvery { nominatimService.search("Café de Flore") } returns expected
+        coEvery { nominatimService.search("Café de Flore", any()) } returns expected
 
         val result = useCase("Café de Flore")
 
         assertTrue(result.isSuccess)
         assertEquals(expected, result.getOrNull())
-        coVerify { nominatimService.search("Café de Flore") }
+        coVerify { nominatimService.search("Café de Flore", null) }
     }
 
     @Test
     fun `invoke propagates service exception as failure`() = runTest {
-        coEvery { nominatimService.search(any()) } throws RuntimeException("Network error")
+        coEvery { nominatimService.search(any(), any()) } throws RuntimeException("Network error")
 
         val result = useCase("query")
 
@@ -54,7 +54,7 @@ class SearchPlacesUseCaseTest {
 
     @Test
     fun `invoke returns empty list when service returns no results`() = runTest {
-        coEvery { nominatimService.search(any()) } returns emptyList()
+        coEvery { nominatimService.search(any(), any()) } returns emptyList()
 
         val result = useCase("xyz unknown place")
 

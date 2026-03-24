@@ -7,6 +7,6 @@ import javax.inject.Inject
 class SearchPlacesUseCase @Inject constructor(
     private val nominatimService: NominatimService,
 ) {
-    suspend operator fun invoke(query: String): Result<List<PlaceResult>> =
-        runCatching { nominatimService.search(query) }
+    suspend operator fun invoke(query: String, viewbox: String? = null): Result<List<PlaceResult>> =
+        runCatching { nominatimService.search(query, viewbox) }
 }

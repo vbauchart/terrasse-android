@@ -83,6 +83,13 @@ class AddEditTerraceViewModel @Inject constructor(
     // Point de référence pour trier les résultats de recherche par distance
     private val refLat: Double = savedStateHandle.get<String>("lat")?.toDoubleOrNull() ?: 48.8566
     private val refLng: Double = savedStateHandle.get<String>("lng")?.toDoubleOrNull() ?: 2.3522
+    private val refZoom: Double = savedStateHandle.get<String>("zoom")?.toDoubleOrNull() ?: 12.0
+
+    // Viewbox au format Nominatim : minLon,maxLat,maxLon,minLat
+    private fun viewbox(): String {
+        val halfDeg = 360.0 / Math.pow(2.0, refZoom) * 2.0
+        return "${refLng - halfDeg},${refLat + halfDeg * 0.6},${refLng + halfDeg},${refLat - halfDeg * 0.6}"
+    }
 
     private val _uiState = MutableStateFlow(
         AddTerraceUiState(
@@ -216,7 +223,7 @@ class AddEditTerraceViewModel @Inject constructor(
         if (query.isBlank()) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSearching = true, searchError = null)
-            searchPlacesUseCase(query)
+            searchPlacesUseCase(query, viewbox())
                 .onSuccess { results ->
                     val sorted = results.sortedBy { distanceTo(it.latitude, it.longitude) }
                     _uiState.value = _uiState.value.copy(searchResults = sorted, isSearching = false)
