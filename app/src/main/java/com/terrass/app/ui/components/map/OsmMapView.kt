@@ -71,6 +71,9 @@ fun OsmMapView(
         factory = { mapView },
         modifier = modifier,
         update = { view ->
+            // Recentrer et zoomer la carte
+            view.controller.animateTo(center, zoom, 300L)
+
             // Long-press handler
             view.overlays.removeAll { it is MapEventsOverlay }
             if (onMapLongClick != null) {

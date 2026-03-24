@@ -19,12 +19,14 @@ import javax.inject.Inject
 
 data class MapUiState(
     val center: GeoPoint = GeoPoint(48.8566, 2.3522),
-    val zoom: Double = 15.0,
+    val zoom: Double = 12.0,
     val hasLocationPermission: Boolean = false,
     val isTrackingLocation: Boolean = false,
     val terraces: List<Terrace> = emptyList(),
     val userLocation: GeoPoint? = null,
     val selectedTerrace: Terrace? = null,
+    val isLocating: Boolean = false,
+    val locationError: String? = null,
 )
 
 @HiltViewModel
@@ -93,11 +95,40 @@ class MapViewModel @Inject constructor(
     }
 
     fun onCenterOnUser() {
-        if (_uiState.value.hasLocationPermission) {
-            viewModelScope.launch {
-                locationProvider.lastLocation()?.let { updateCenter(it) }
+        if (!_uiState.value.hasLocationPermission) {
+            _uiState.value = _uiState.value.copy(
+                locationError = "Permission de localisation non accordée",
+            )
+            return
+        }
+        _uiState.value = _uiState.value.copy(isLocating = true, locationError = null)
+        viewModelScope.launch {
+            try {
+                val location = locationProvider.lastLocation()
+                if (location != null) {
+                    _uiState.value = _uiState.value.copy(
+                        center = GeoPoint(location.latitude, location.longitude),
+                        userLocation = GeoPoint(location.latitude, location.longitude),
+                        zoom = 15.0,
+                        isLocating = false,
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLocating = false,
+                        locationError = "Position introuvable",
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLocating = false,
+                    locationError = "Impossible de récupérer la position",
+                )
             }
         }
+    }
+
+    fun onDismissLocationError() {
+        _uiState.value = _uiState.value.copy(locationError = null)
     }
 
     fun onMarkerClick(terraceId: Long) {

@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -155,5 +156,64 @@ class MapViewModelTest {
 
         coVerify { deleteTerraceUseCase(1) }
         assertNull(viewModel.uiState.value.selectedTerrace)
+    }
+
+    @Test
+    fun `onCenterOnUser without permission sets error`() = runTest {
+        viewModel = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onCenterOnUser()
+
+        assertNotNull(viewModel.uiState.value.locationError)
+        assertFalse(viewModel.uiState.value.isLocating)
+    }
+
+    @Test
+    fun `onCenterOnUser with permission and location zooms in`() = runTest {
+        val mockLocation = mockk<Location> {
+            every { latitude } returns 43.6047
+            every { longitude } returns 1.4442
+        }
+        coEvery { locationProvider.lastLocation() } returns mockLocation
+
+        viewModel = createViewModel()
+        viewModel.onPermissionResult(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onCenterOnUser()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(43.6047, state.center.latitude, 0.0001)
+        assertEquals(15.0, state.zoom, 0.1)
+        assertFalse(state.isLocating)
+        assertNull(state.locationError)
+    }
+
+    @Test
+    fun `onCenterOnUser with permission but no location sets error`() = runTest {
+        coEvery { locationProvider.lastLocation() } returns null
+
+        viewModel = createViewModel()
+        viewModel.onPermissionResult(true)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onCenterOnUser()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertNotNull(state.locationError)
+        assertFalse(state.isLocating)
+    }
+
+    @Test
+    fun `onDismissLocationError clears error`() = runTest {
+        viewModel = createViewModel()
+        viewModel.onCenterOnUser() // sans permission → erreur
+        assertNotNull(viewModel.uiState.value.locationError)
+
+        viewModel.onDismissLocationError()
+        assertNull(viewModel.uiState.value.locationError)
     }
 }
