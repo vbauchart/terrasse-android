@@ -6,14 +6,17 @@ Application Android de recensement et d'évaluation des terrasses de cafés et r
 L'objectif est de permettre aux utilisateurs de découvrir, ajouter et noter des terrasses
 selon des critères précis (soleil, bruit, confort...) via une carte interactive OpenStreetMap.
 
-**MVP** : stockage local uniquement (Room), pas d'authentification, pas de backend.
+**Architecture** : offline-first avec synchronisation PocketBase self-hosted.
+- Room = cache local (toujours disponible hors ligne)
+- PocketBase = source de vérité distante (partagée entre tous les appareils)
+- Identité anonyme par UUID d'appareil (pas de compte utilisateur, pas de Google)
 
 ---
 
 ## 1. Spécifications Fonctionnelles
 
 ### 1.1 Écran principal — Carte interactive
-- TopAppBar avec titre "Terrasse", logo (parasol vectoriel), bouton hamburger (prévu pour menu latéral)
+- TopAppBar avec titre "Terrasse", logo (parasol vectoriel), bouton hamburger
 - Carte osmdroid (tuiles OpenStreetMap) sous la TopAppBar, entre barre de statut et barre de navigation
 - Marqueurs colorés sur chaque terrasse (vert = bien noté, rouge = mal noté, gris = pas de vote)
 - Tap sur un marqueur → bottom sheet de détail
@@ -22,12 +25,12 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 - FAB "+" pour ajouter une terrasse (GPS auto-détecté)
 - FAB/icône filtre avec badge du nombre de filtres actifs
 - Zoom par défaut : niveau ville (12.0), recentrage GPS : niveau quartier (15.0)
+- Menu hamburger : Vue carte / Vue liste / Statut
 
-### 1.2 Liste des terrasses (bottom sheet)
-- Bottom sheet intégré à l'écran carte (swipe-up depuis un peek)
-- Peek : barre de drag + résumé ("12 terrasses")
+### 1.2 Liste des terrasses (vue liste)
+- Accessible via le menu hamburger "Vue liste"
 - Liste `LazyColumn` : nom, % positif, 2-3 chips d'attributs principaux
-- Tap sur un item → affiche le détail dans le sheet + zoom sur le marqueur
+- Tap sur un item → revient sur la carte + affiche le détail en bottom sheet
 
 ### 1.3 Détail d'une terrasse (bottom sheet)
 - Nom, adresse (si dispo)
@@ -40,6 +43,7 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 - Mini-carte avec pin déplaçable pour choisir l'emplacement
 - Pré-rempli avec la position GPS ou les coordonnées du long-press
 - Champ nom (obligatoire)
+- Bouton "Rechercher l'établissement" → bottom sheet de recherche Photon
 - 4 sections dépliables d'attributs :
 
 **Exposition au soleil**
@@ -70,7 +74,7 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 | Type de cuisine | Texte libre | — |
 
 ### 1.5 Filtres
-- Bottom sheet ou dialog avec des chip groups par catégorie
+- Bottom sheet avec des chip groups par catégorie
 - Chaque attribut est un `FilterChip` Material3
 - Filtre supplémentaire : "Minimum X% positif"
 - Bouton "Réinitialiser"
@@ -78,11 +82,27 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 
 ### 1.6 Système de votes
 - Pouce haut / pouce bas (binaire)
+- **Un seul vote par appareil par terrasse** (identifié par `device_id`)
+- Changer d'avis est possible : revoter dans le sens opposé inverse le compteur
+- Revoter dans le même sens → no-op
 - Affiché en pourcentage positif + nombre total
-- Pas de limite de votes par terrasse dans le MVP (pas d'auth)
-- -1 ou "Pas encore noté" si aucun vote
+- "-" ou "Pas encore noté" si aucun vote
 
-### 1.7 Modération (post-MVP)
+### 1.7 Recherche d'établissement (Photon)
+- Bouton dans le formulaire d'ajout → bottom sheet de recherche
+- Moteur : **Photon** (komoot, basé OSM) — supporte la recherche partielle/préfixe
+- Résultats filtrés aux types food & drink OSM : restaurant, café, bar, pub, fast_food, food_court, biergarten, ice_cream
+- Résultats restreints à la viewbox visible (bbox au format Photon : `minLon,minLat,maxLon,maxLat`)
+- Résultats triés par distance croissante depuis le centre de la carte
+- Affichage de l'adresse complète dans la liste résultats
+
+### 1.8 Écran Statut
+- Accessible depuis le menu hamburger
+- Carte GPS : état NO_PERMISSION / SEARCHING / ACTIVE avec icône et couleur
+- Carte Sync : état IDLE / SYNCING / UP_TO_DATE / OFFLINE avec icône et couleur
+- Affiche l'URL PocketBase configurée
+
+### 1.9 Modération (post-MVP)
 - Champ `status` déjà présent en base ("active", "pending", "hidden")
 - Le DAO filtre déjà sur `status = 'active'`
 - Prêt pour un futur système de validation sans migration de schéma
@@ -94,21 +114,34 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 ### 2.1 Stack
 - **Kotlin 2.1.20** + **Jetpack Compose** (Material3)
 - **Hilt** (injection de dépendances)
-- **Room** (base de données locale)
+- **Room** (base de données locale, cache offline-first)
+- **PocketBase** (backend self-hosted, REST + SSE temps réel)
 - **Navigation Compose** (routing)
 - **osmdroid 6.1.20** (cartes OpenStreetMap, wrappé dans `AndroidView`)
 - **play-services-location** (géolocalisation GPS)
 - **Coroutines + Flow** (asynchrone et réactivité)
+- **HttpURLConnection + org.json** (HTTP sans dépendance supplémentaire)
 
 ### 2.2 Architecture MVVM / Clean Architecture
 
 ```
-UI (Compose) → ViewModel → UseCase → Repository (interface) → DAO (Room)
+UI (Compose) → ViewModel → UseCase → TerraceRepository (interface)
+                                            ↓
+                                TerraceRepositoryImpl
+                                  ↙              ↘
+                          Room (cache)    PocketBaseService (remote)
 ```
+
+**Flux de données :**
+- **Lectures** : Room (Flow réactif, toujours dispo offline)
+- **Écriture** : local d'abord (optimistic), sync PocketBase async
+- **Sync startup** : pull toutes les terrasses PocketBase → upsert Room
+- **Temps réel** : SSE PocketBase → upsert Room → Flow Room notifie l'UI
+- **Offline retry** : items `synced=false` poussés au prochain lancement
 
 ### 2.3 Schéma de base de données
 
-**Table `terraces`**
+**Table `terraces`** (version 4)
 ```
 id              INTEGER PRIMARY KEY AUTOINCREMENT
 name            TEXT NOT NULL
@@ -129,22 +162,33 @@ cuisine_type    TEXT
 created_at      INTEGER
 updated_at      INTEGER
 status          TEXT DEFAULT 'active'
+remote_id       TEXT        -- PocketBase record ID
+synced          INTEGER     -- 0/1
+thumbs_up       INTEGER DEFAULT 0
+thumbs_down     INTEGER DEFAULT 0
 ```
 
-**Table `votes`**
+**Table `votes`** (version 4)
 ```
 id              INTEGER PRIMARY KEY AUTOINCREMENT
 terrace_id      INTEGER REFERENCES terraces(id) ON DELETE CASCADE
 is_positive     INTEGER     -- 0/1
+device_id       TEXT        -- UUID appareil
 created_at      INTEGER
+remote_id       TEXT        -- PocketBase record ID
+synced          INTEGER     -- 0/1
+
+UNIQUE INDEX (terrace_id, device_id)  -- un seul vote par appareil par terrasse
 ```
 
 ### 2.4 Couche Domain — Modèles
 
-- `Terrace` : modèle principal avec sous-objets `SunExposure`, `Comfort`, `Environment`, `Service`
+- `Terrace` : modèle principal avec sous-objets `SunExposure`, `Comfort`, `Environment`, `Service` + `thumbsUp`, `thumbsDown`
 - `FilterCriteria` : data class contenant tous les critères de filtre
+- `SyncStatus` : enum `IDLE / SYNCING / UP_TO_DATE / OFFLINE`
+- `PlaceResult` : résultat de recherche Photon
 - Enums Kotlin : `SunTime`, `TerraceSize`, `NoiseLevel`, `ViewQuality`, `ServiceQuality`, `PriceRange`, `TerraceStatus`
-- `TerraceRepository` : interface dans le domain
+- `TerraceRepository` : interface dans le domain, expose `syncStatus: StateFlow<SyncStatus>`
 
 ### 2.5 Use Cases
 
@@ -155,7 +199,8 @@ created_at      INTEGER
 | `AddTerraceUseCase` | Validation + insertion |
 | `UpdateTerraceUseCase` | Validation + mise à jour |
 | `DeleteTerraceUseCase` | Suppression |
-| `VoteTerraceUseCase` | Ajout d'un vote |
+| `VoteTerraceUseCase` | Vote (limité à 1 par device, changement de sens possible) |
+| `SearchPlacesUseCase` | Recherche Photon avec bbox |
 
 Le filtrage se fait en mémoire (`Flow.map { list.filter { ... } }`) — suffisant pour l'échelle MVP.
 
@@ -164,10 +209,9 @@ Le filtrage se fait en mémoire (`Flow.map { list.filter { ... } }`) — suffisa
 | Route | Type | Description |
 |-------|------|-------------|
 | `"map"` | Écran principal | Carte + bottom sheet (liste / détail / filtre) |
-| `"terrace/add?lat={lat}&lng={lng}"` | Plein écran | Formulaire d'ajout |
+| `"status"` | Plein écran | État GPS + état sync |
+| `"terrace/add?lat={lat}&lng={lng}&zoom={zoom}"` | Plein écran | Formulaire d'ajout |
 | `"terrace/{id}/edit"` | Plein écran | Formulaire d'édition |
-
-Le sheet a 3 états gérés par le `MapViewModel` : `LIST`, `DETAIL`, `FILTER`.
 
 ### 2.7 Intégration osmdroid dans Compose
 
@@ -179,13 +223,51 @@ Wrapper `AndroidView` dans `ui/components/map/OsmMapView.kt` :
 - `UserLocationOverlay` : point bleu/vert pour la position de l'utilisateur
 - `MapEventsOverlay` : détection du long-press pour ajout
 
-### 2.8 Modules Hilt
+### 2.8 PocketBase — Collections
+
+**terraces** (API rules : public read+write)
+| Champ | Type |
+|-------|------|
+| name | text (required) |
+| latitude / longitude | number |
+| address, sun_times, size, road_proximity, noise_level, view_quality, service_quality, price_range, cuisine_type | text |
+| is_covered, is_heated, has_vegetation | bool |
+| status | text (default: "active") |
+| device_id | text |
+| thumbs_up / thumbs_down | number (default: 0) |
+
+**votes** (API rules : public create+list)
+| Champ | Type |
+|-------|------|
+| terrace_id | relation → terraces (cascadeDelete) |
+| is_positive | bool |
+| device_id | text |
+
+Index unique sur `(terrace_id, device_id)` → 1 vote max par appareil par terrasse.
+
+Compteurs `thumbs_up`/`thumbs_down` mis à jour via syntaxe PocketBase `"+1"` / `"-1"`.
+
+### 2.9 Modules Hilt
 
 | Module | Scope | Fournit |
 |--------|-------|---------|
 | `DatabaseModule` | Singleton | `TerasseDatabase`, `TerraceDao`, `VoteDao` |
 | `RepositoryModule` | Singleton | `TerraceRepository` → `TerraceRepositoryImpl` |
 | `AppModule` | Singleton | `LocationProvider` (wrapper FusedLocationProviderClient) |
+| `NetworkModule` | Singleton | `CoroutineScope` (app-level, SupervisorJob) |
+
+`DeviceIdProvider` et `PocketBaseService` s'injectent directement via `@Inject constructor`.
+
+### 2.10 Configuration
+
+`local.properties` (git-ignoré) :
+```
+pocketbaseUrl=http://192.168.x.x:8090
+```
+
+Lu par `app/build.gradle.kts` → `BuildConfig.POCKETBASE_URL`.
+
+Debug uniquement : `app/src/debug/AndroidManifest.xml` avec `android:usesCleartextTraffic="true"` pour autoriser HTTP local.
 
 ---
 
@@ -193,73 +275,82 @@ Wrapper `AndroidView` dans `ui/components/map/OsmMapView.kt` :
 
 ```
 com/terrass/app/
-├── MainActivity.kt                         ✅
-├── TerassApplication.kt                    ✅
+├── MainActivity.kt                               ✅
+├── TerassApplication.kt                          ✅
 ├── data/
 │   ├── local/
-│   │   ├── TerasseDatabase.kt              ✅
+│   │   ├── TerasseDatabase.kt                    ✅ (version 4)
 │   │   ├── dao/
-│   │   │   ├── TerraceDao.kt               ✅
-│   │   │   └── VoteDao.kt                  ✅
+│   │   │   ├── TerraceDao.kt                     ✅
+│   │   │   └── VoteDao.kt                        ✅
 │   │   ├── entity/
-│   │   │   ├── TerraceEntity.kt            ✅
-│   │   │   ├── VoteEntity.kt               ✅
-│   │   │   └── TerraceWithVotes.kt         ✅
+│   │   │   ├── TerraceEntity.kt                  ✅ (+ remote_id, synced, thumbs)
+│   │   │   └── VoteEntity.kt                     ✅ (+ device_id, remote_id, synced)
 │   │   └── mapper/
-│   │       └── TerraceMapper.kt            ✅
+│   │       └── TerraceMapper.kt                  ✅
+│   ├── preferences/
+│   │   └── DeviceIdProvider.kt                   ✅ (UUID persistant Android Keystore-ready)
 │   ├── remote/
-│   │   └── NominatimService.kt             ✅
+│   │   ├── PocketBaseService.kt                  ✅ (REST + SSE)
+│   │   ├── PocketBaseConfig.kt                   ✅ (BuildConfig.POCKETBASE_URL)
+│   │   ├── PhotonService.kt                      ✅ (recherche établissements)
+│   │   └── dto/
+│   │       └── TerraceDto.kt                     ✅
 │   ├── repository/
-│   │   └── TerraceRepositoryImpl.kt        ✅
+│   │   └── TerraceRepositoryImpl.kt              ✅ (offline-first + sync)
 │   └── location/
-│       └── LocationProvider.kt             ✅
+│       └── LocationProvider.kt                   ✅
 ├── domain/
 │   ├── model/
-│   │   ├── Terrace.kt                      ✅
-│   │   ├── Enums.kt                        ✅
-│   │   ├── PlaceResult.kt                  ✅
-│   │   ├── FilterCriteria.kt               ✅
-│   │   └── MapMarker.kt                    Sprint 5
+│   │   ├── Terrace.kt                            ✅
+│   │   ├── Enums.kt                              ✅
+│   │   ├── PlaceResult.kt                        ✅
+│   │   ├── FilterCriteria.kt                     ✅
+│   │   └── SyncStatus.kt                         ✅
 │   ├── repository/
-│   │   └── TerraceRepository.kt            ✅
+│   │   └── TerraceRepository.kt                  ✅ (+ syncStatus: StateFlow)
 │   └── usecase/
-│       ├── GetTerracesUseCase.kt           ✅
-│       ├── GetTerraceDetailUseCase.kt      ✅
-│       ├── AddTerraceUseCase.kt            ✅
-│       ├── UpdateTerraceUseCase.kt         ✅
-│       ├── DeleteTerraceUseCase.kt         ✅
-│       ├── VoteTerraceUseCase.kt           ✅
-│       └── SearchPlacesUseCase.kt          ✅
+│       ├── GetTerracesUseCase.kt                 ✅
+│       ├── GetTerraceDetailUseCase.kt            ✅
+│       ├── AddTerraceUseCase.kt                  ✅
+│       ├── UpdateTerraceUseCase.kt               ✅
+│       ├── DeleteTerraceUseCase.kt               ✅
+│       ├── VoteTerraceUseCase.kt                 ✅
+│       └── SearchPlacesUseCase.kt                ✅ (Photon)
 ├── di/
-│   ├── AppModule.kt                        ✅
-│   ├── DatabaseModule.kt                   ✅
-│   └── RepositoryModule.kt                 ✅
+│   ├── AppModule.kt                              ✅
+│   ├── DatabaseModule.kt                         ✅
+│   ├── NetworkModule.kt                          ✅ (appScope)
+│   └── RepositoryModule.kt                       ✅
 └── ui/
-    ├── TerassApp.kt                        ✅
+    ├── TerassApp.kt                              ✅
     ├── theme/
-    │   ├── Color.kt                        ✅
-    │   └── Theme.kt                        ✅
+    │   ├── Color.kt                              ✅
+    │   └── Theme.kt                              ✅
     ├── components/
     │   ├── map/
-    │   │   └── OsmMapView.kt               ✅
+    │   │   └── OsmMapView.kt                     ✅
     │   └── common/
-    │       └── VoteIndicator.kt            ✅
+    │       └── VoteIndicator.kt                  ✅
     └── screens/
         ├── map/
-        │   ├── MapScreen.kt                ✅
-        │   ├── MapViewModel.kt             ✅
+        │   ├── MapScreen.kt                      ✅
+        │   ├── MapViewModel.kt                   ✅
         │   └── components/
-        │       ├── TerraceListContent.kt   ✅
-        │       ├── TerraceListItem.kt      ✅
-        │       ├── TerraceDetailSheet.kt   ✅
-        │       └── FilterSheet.kt          ✅
+        │       ├── TerraceListContent.kt         ✅
+        │       ├── TerraceListItem.kt            ✅
+        │       ├── TerraceDetailSheet.kt         ✅
+        │       └── FilterSheet.kt                ✅
+        ├── status/
+        │   ├── StatusScreen.kt                   ✅
+        │   └── StatusViewModel.kt                ✅
         └── addterrace/
-            ├── AddEditTerraceScreen.kt     ✅
-            └── AddEditTerraceViewModel.kt  ✅
+            ├── AddEditTerraceScreen.kt           ✅
+            └── AddEditTerraceViewModel.kt        ✅
 
-res/
-└── drawable/
-    └── ic_logo.xml                         ✅ (logo vectoriel parasol)
+pb_migrations/
+├── 1742760000_init.js                            ✅ (collections terraces + votes)
+└── 1742820000_votes_unique_per_device.js         ✅ (index unique terrace_id+device_id)
 ```
 
 ---
@@ -306,15 +397,6 @@ app/src/test/java/com/terrass/app/          -- tests unitaires (JVM)
 app/src/androidTest/java/com/terrass/app/   -- tests instrumentés (Room)
 ```
 
-Dépendances de test à ajouter :
-```toml
-junit5 = "5.10.2"
-coroutines-test = "1.9.0"
-turbine = "1.2.0"
-mockk = "1.13.13"
-room-testing = "2.6.1"
-```
-
 ### 5.2 Principe : MVP testable à chaque sprint
 
 Chaque sprint produit un APK installable avec une fonctionnalité complète de bout en bout.
@@ -327,169 +409,130 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 ### Sprint 1 — La carte qui marche ✅
 **Objectif** : L'app s'ouvre sur une carte OSM interactive centrée sur la position de l'utilisateur.
 
-**Contenu** :
-- Init osmdroid dans `TerassApplication`
-- Wrapper Compose `OsmMapView` (AndroidView + lifecycle)
-- `MapViewModel` avec gestion de la position GPS
-- `LocationProvider` (wrapper FusedLocationProviderClient)
-- Demande de permission localisation
-- DI : `AppModule` fournit `LocationProvider`
-
-**Tests unitaires** :
-- `MapViewModelTest` : état initial, mise à jour position, gestion permission refusée
-
 **Validation sur device** :
 - [x] L'app s'ouvre sur une carte OpenStreetMap
 - [x] La carte est interactive (zoom, pan)
 - [x] La permission GPS est demandée
 - [x] La carte se centre sur la position de l'utilisateur
-- [x] Le build compile (`./gradlew assembleDebug`)
-- [x] Les tests passent (`./gradlew test`)
 
 ---
 
 ### Sprint 2 — Ajouter une terrasse ✅
 **Objectif** : L'utilisateur peut ajouter une terrasse (nom + position) et la voir apparaître comme marqueur sur la carte.
 
-**Contenu** :
-- Enums (`Enums.kt`), modèles domain (`Terrace.kt`, `SunExposure`, `Comfort`, `Environment`, `Service`)
-- Entities Room (`TerraceEntity`, `VoteEntity`, `TerraceWithVotes`)
-- `TerraceDao`, `VoteDao`, `TerasseDatabase`
-- `TerraceMapper` (entity ↔ domain)
-- `TerraceRepository` (interface) + `TerraceRepositoryImpl`
-- `AddTerraceUseCase`, `GetTerracesUseCase`
-- DI : `DatabaseModule`, `RepositoryModule`
-- `AddEditTerraceScreen` + `AddEditTerraceViewModel` (formulaire avec les 4 sections d'attributs)
-- Navigation : route `"terrace/add?lat={lat}&lng={lng}"`
-- Long-press sur la carte → naviguer vers le formulaire d'ajout
-- FAB "+" → ajouter depuis position GPS
-- Affichage des marqueurs sur la carte depuis la base de données
-
-**Tests unitaires** :
-- `TerraceMapperTest` : conversion entity → domain et domain → entity
-- `AddTerraceUseCaseTest` : validation nom vide, insertion OK
-- `GetTerracesUseCaseTest` : retourne les terrasses, flow réactif
-- `AddEditTerraceViewModelTest` : validation du formulaire, sauvegarde
-- `TerraceDao` tests instrumentés : insert, getAll, getById
-
 **Validation sur device** :
 - [x] Long-press sur la carte ouvre le formulaire pré-rempli avec les coordonnées
 - [x] FAB "+" ouvre le formulaire avec la position GPS
 - [x] Remplir le nom + attributs et sauvegarder fonctionne
 - [x] Le marqueur apparaît sur la carte après l'ajout
-- [x] Retour en arrière depuis le formulaire annule l'ajout
-- [x] Les tests passent (`./gradlew test`)
 
 ---
 
 ### Sprint 3 — Détail, édition, suppression et votes ✅
 **Objectif** : L'utilisateur peut consulter une terrasse, la modifier, la supprimer et voter.
 
-**Contenu** :
-- `GetTerraceDetailUseCase`, `UpdateTerraceUseCase`, `DeleteTerraceUseCase`, `VoteTerraceUseCase`
-- `TerraceDetailSheet` (bottom sheet de détail avec tous les attributs)
-- Tap sur marqueur → affiche le détail en bottom sheet
-- Boutons pouce haut / pouce bas dans le détail
-- `VoteIndicator` composant (affiche "82% positif · 17 avis")
-- Bouton modifier → navigation vers `"terrace/{id}/edit"` (réutilise `AddEditTerraceScreen`)
-- Bouton supprimer avec confirmation dialog
-- Couleur des marqueurs selon le % de votes (vert/rouge/gris)
-- TopAppBar avec logo vectoriel (parasol + table + soleil) et bouton hamburger
-- Feedback visuel sur recentrage GPS (spinner + snackbar d'erreur)
-- Animation `animateTo` sur la carte lors du recentrage
-
-**Tests unitaires** (32 tests, 0 failures) :
-- `VoteTerraceUseCaseTest` : insertion vote thumbs up / thumbs down
-- `UpdateTerraceUseCaseTest` : mise à jour OK, validation nom vide
-- `DeleteTerraceUseCaseTest` : suppression OK
-- `GetTerraceDetailUseCaseTest` : terrasse avec votes agrégés, ID inconnu
-- `Terrace.votePercentage` : test des cas limites (0 votes, 100%, 0%)
-- `MapViewModelTest` : recentrage sans permission, avec position (zoom 15.0), sans position, dismiss erreur
-
 **Validation sur device** :
 - [x] Tap sur un marqueur affiche le bottom sheet de détail
-- [x] Les attributs sont affichés correctement
 - [x] Pouce haut/bas incrémente le compteur et met à jour le %
 - [x] Modifier ouvre le formulaire pré-rempli, la sauvegarde met à jour le marqueur
 - [x] Supprimer (avec confirmation) retire le marqueur de la carte
 - [x] La couleur du marqueur change selon le % de votes
-- [x] Bouton recentrage GPS fonctionne avec feedback visuel et zoom quartier
-- [x] Les tests passent (`./gradlew test`)
 
 ---
 
-### Sprint 3b — Recherche d'établissement (Nominatim) ✅
-**Objectif** : L'utilisateur peut rechercher un café/restaurant par son nom et importer automatiquement son nom, adresse et coordonnées GPS dans le formulaire d'ajout.
+### Sprint 3b — Recherche d'établissement ✅
+**Objectif** : L'utilisateur peut rechercher un café/restaurant et importer ses données dans le formulaire.
 
-**Contenu** :
-- `PlaceResult` modèle domain
-- `NominatimService` (appel HTTP `HttpURLConnection` + parse `org.json`, sans dépendance supplémentaire)
-- `SearchPlacesUseCase` (wraps le service, retourne `Result<List<PlaceResult>>`)
-- `AddEditTerraceViewModel` : `searchQuery`, `searchResults`, `isSearching`, `searchError`, debounce 500ms, `applyPlaceResult()`
-- `AddEditTerraceScreen` : bouton "Rechercher l'établissement" + `ModalBottomSheet` (champ recherche, liste résultats, états chargement/erreur/vide)
-- Headers Nominatim : `User-Agent: Terrass Android App`, `Accept-Language: fr`
-
-**Tests unitaires** :
-- `SearchPlacesUseCaseTest` : résultats OK, propagation d'erreur, liste vide
-- `AddEditTerraceViewModelTest` : `applyPlaceResult` pré-remplit nom/lat/lng/adresse, nettoie l'état de recherche
+Service : **Photon** (komoot) — recherche partielle/préfixe native, pas de dépendance supplémentaire.
 
 **Validation sur device** :
-- [x] Chercher "Café de Flore Paris" affiche des résultats
-- [x] Tap sur un résultat pré-remplit le formulaire (nom, coordonnées, adresse)
-- [x] Ferme le sheet après sélection
-- [x] Les tests passent (`./gradlew test`)
+- [x] Chercher "Pizza Lu" trouve "Pizza Luigi" dans la viewbox
+- [x] Résultats filtrés aux types food & drink OSM
+- [x] Résultats triés par distance depuis le centre de la carte
+- [x] Adresse complète affichée dans la liste résultats
+- [x] Tap sur un résultat pré-remplit le formulaire
 
 ---
 
 ### Sprint 4 — Liste et filtres ✅
 **Objectif** : L'utilisateur peut voir la liste des terrasses et filtrer par attributs.
 
-**Contenu** :
-- `BottomSheetScaffold` intégré dans `MapScreen`
-- `TerraceListContent` (LazyColumn) + `TerraceListItem`
-- `AttributeChip` composant réutilisable
-- `FilterCriteria` modèle + logique de filtrage dans `GetTerracesUseCase`
-- `FilterSheet` avec chip groups par catégorie
-- Badge nombre de filtres actifs sur l'icône filtre
-- Tap sur un item de la liste → zoom sur le marqueur + affiche détail
-- Les filtres masquent aussi les marqueurs de la carte
-
-**Tests unitaires** :
-- `FilterCriteria.matches()` : tous les critères individuels + combinaisons
-- `GetTerracesUseCaseTest` : filtrage en mémoire (chaque attribut, combinaisons)
-- `MapViewModelTest` : changement de filtres met à jour la liste et les marqueurs
-
 **Validation sur device** :
-- [x] Swipe-up depuis le peek affiche la liste des terrasses
-- [x] Le peek affiche le nombre de terrasses ("12 terrasses")
+- [x] Vue liste accessible depuis le menu hamburger
 - [x] Chaque item affiche nom, % positif, chips d'attributs
-- [x] Tap sur un item zoom sur le marqueur et affiche le détail
 - [x] Les filtres réduisent la liste ET les marqueurs sur la carte
 - [x] Le badge indique le nombre de filtres actifs
-- [x] Réinitialiser les filtres restaure la liste complète
-- [x] Les tests passent (`./gradlew test`)
 
 ---
 
 ### Sprint 5 — Polish et finitions ✅
 **Objectif** : L'app est agréable à utiliser avec des finitions soignées.
 
-**Contenu** :
-- Reverse geocoding pour afficher l'adresse (Android Geocoder, best-effort)
-- Icônes marqueurs custom (cercles colorés avec graduation)
-- États vides ("Aucune terrasse" / "Aucun résultat pour ces filtres")
-- Animations de transition (sheet, navigation)
-- Bouton de recentrage GPS sur la carte
-- Gestion des erreurs et edge cases (pas de GPS, pas de réseau pour les tuiles)
-- Revue générale et nettoyage du code
-
-**Tests unitaires** :
-- Tests des edge cases : pas de réseau, permission refusée, base vide
-
 **Validation sur device** :
 - [x] L'adresse s'affiche dans le détail quand disponible
-- [x] Les marqueurs ont des icônes colorées distinctes (pin + logo)
-- [x] Les états vides sont affichés correctement ("Aucune terrasse" / "Aucun résultat pour ces filtres")
-- [x] L'app reste fonctionnelle sans réseau (tuiles en cache, données locales)
+- [x] Les marqueurs ont des icônes colorées distinctes
+- [x] Les états vides sont affichés correctement
 - [x] Les transitions sont fluides (slideInHorizontally + fadeIn)
-- [x] Les tests passent (`./gradlew test`)
+
+---
+
+### Sprint 6 — Collaboration PocketBase ✅
+**Objectif** : Les terrasses et votes sont partagés entre tous les appareils via PocketBase self-hosted.
+
+**Contenu** :
+- `DeviceIdProvider` : UUID stable par appareil (SharedPreferences)
+- `PocketBaseService` : REST (CRUD terrasses + votes) + SSE (temps réel)
+- `TerraceDto` + `TerraceMapper.toEntity()` (DTO → Room)
+- `TerraceRepositoryImpl` : offline-first, sync au démarrage, SSE continu, retry exponentiel
+- `SyncStatus` : enum IDLE / SYNCING / UP_TO_DATE / OFFLINE
+- `StatusScreen` + `StatusViewModel` : état GPS + état sync
+- `NetworkModule` : `CoroutineScope` app-level (SupervisorJob)
+- DB version 3 : `remote_id`, `synced`, `thumbs_up`, `thumbs_down` sur `TerraceEntity`
+- `BuildConfig.POCKETBASE_URL` via `local.properties` (git-ignoré)
+- `app/src/debug/AndroidManifest.xml` : cleartext HTTP pour dev local
+- `docker-compose.yml` + `dev-local.sh` (détecte IP LAN, build + install APK)
+- Migrations PocketBase via `pb_migrations/` (équivalent Flyway)
+
+**Bugfixes inclus** :
+- `updateTerrace` préserve `thumbsUp`/`thumbsDown`/`remoteId` depuis l'entité existante
+
+**Validation sur device** :
+- [x] Ajouter une terrasse sur un appareil → apparaît sur un autre via SSE
+- [x] Votes synchronisés entre appareils
+- [x] StatusScreen affiche GPS actif + sync UP_TO_DATE
+- [x] Hors ligne → status OFFLINE, données locales disponibles
+- [x] Retour en ligne → sync automatique au redémarrage
+
+---
+
+### Sprint 7 — Vote unique par appareil ✅
+**Objectif** : Un appareil ne peut voter qu'une fois par terrasse (changement de sens autorisé).
+
+**Contenu** :
+- `VoteEntity` : ajout `device_id`, index unique `(terrace_id, device_id)`
+- `VoteDao` : `getByTerraceAndDevice(terraceId, deviceId)`
+- `TerraceRepositoryImpl.vote()` : logique idempotente (même sens → no-op, sens opposé → swap compteurs)
+- `PocketBaseService` : `addVote` retourne le `remoteId`, nouveau `updateVote` + `patchTerraceCounter`
+- Migration PocketBase `1742820000_votes_unique_per_device.js` : nettoyage doublons + index unique
+- DB version 4
+
+**Validation sur device** :
+- [x] Voter deux fois dans le même sens → compteur n'augmente pas
+- [x] Voter dans le sens opposé → les deux compteurs s'ajustent correctement
+- [x] Index unique respecté côté PocketBase
+
+---
+
+## 7. Sécurité — Notes
+
+### Situation actuelle
+L'API PocketBase est publique (rules vides). Pas de secret dans l'APK.
+
+### Approche recommandée (post-MVP)
+Pour éviter le spam sans Google :
+
+1. **Enregistrement anonyme** au 1er lancement → token JWT PocketBase stocké dans Android Keystore (non-extractible, device-specific)
+2. **API rules PocketBase** passent à `@request.auth.id != ""` (auth requise)
+3. **Rate limiting** par IP via Caddy/nginx devant PocketBase
+
+Le secret n'est jamais dans l'APK — il est généré côté serveur au 1er lancement et stocké dans l'enclave matérielle.
