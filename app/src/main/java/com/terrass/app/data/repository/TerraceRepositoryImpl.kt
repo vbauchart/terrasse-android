@@ -112,7 +112,13 @@ class TerraceRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateTerrace(terrace: Terrace) {
-        val entity = terrace.toEntity()
+        val existing = terraceDao.getById(terrace.id)
+        val entity = terrace.toEntity().copy(
+            remoteId = existing?.remoteId,
+            synced = false,
+            thumbsUp = existing?.thumbsUp ?: 0,
+            thumbsDown = existing?.thumbsDown ?: 0,
+        )
         terraceDao.update(entity)
         appScope.launch {
             entity.remoteId?.let { remoteId ->
