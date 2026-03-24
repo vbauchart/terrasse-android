@@ -1,12 +1,12 @@
 package com.terrass.app.domain.usecase
 
-import com.terrass.app.data.remote.NominatimService
+import com.terrass.app.data.remote.PhotonService
 import com.terrass.app.domain.model.PlaceResult
 import javax.inject.Inject
 
 class SearchPlacesUseCase @Inject constructor(
-    private val nominatimService: NominatimService,
+    private val photonService: PhotonService,
 ) {
-    suspend operator fun invoke(query: String, viewbox: String? = null): Result<List<PlaceResult>> =
-        runCatching { nominatimService.search(query, viewbox) }
+    suspend operator fun invoke(query: String, bbox: String? = null): Result<List<PlaceResult>> =
+        runCatching { photonService.search(query, bbox) }
 }

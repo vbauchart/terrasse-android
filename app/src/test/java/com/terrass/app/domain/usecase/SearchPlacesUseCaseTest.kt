@@ -1,6 +1,6 @@
 package com.terrass.app.domain.usecase
 
-import com.terrass.app.data.remote.NominatimService
+import com.terrass.app.data.remote.PhotonService
 import com.terrass.app.domain.model.PlaceResult
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -13,13 +13,13 @@ import org.junit.jupiter.api.Test
 
 class SearchPlacesUseCaseTest {
 
-    private lateinit var nominatimService: NominatimService
+    private lateinit var photonService: PhotonService
     private lateinit var useCase: SearchPlacesUseCase
 
     @BeforeEach
     fun setup() {
-        nominatimService = mockk()
-        useCase = SearchPlacesUseCase(nominatimService)
+        photonService = mockk()
+        useCase = SearchPlacesUseCase(photonService)
     }
 
     @Test
@@ -33,18 +33,18 @@ class SearchPlacesUseCaseTest {
                 address = "172 Bd Saint-Germain, Paris",
             )
         )
-        coEvery { nominatimService.search("Café de Flore", any()) } returns expected
+        coEvery { photonService.search("Café de Flore", any()) } returns expected
 
         val result = useCase("Café de Flore")
 
         assertTrue(result.isSuccess)
         assertEquals(expected, result.getOrNull())
-        coVerify { nominatimService.search("Café de Flore", null) }
+        coVerify { photonService.search("Café de Flore", null) }
     }
 
     @Test
     fun `invoke propagates service exception as failure`() = runTest {
-        coEvery { nominatimService.search(any(), any()) } throws RuntimeException("Network error")
+        coEvery { photonService.search(any(), any()) } throws RuntimeException("Network error")
 
         val result = useCase("query")
 
@@ -54,7 +54,7 @@ class SearchPlacesUseCaseTest {
 
     @Test
     fun `invoke returns empty list when service returns no results`() = runTest {
-        coEvery { nominatimService.search(any(), any()) } returns emptyList()
+        coEvery { photonService.search(any(), any()) } returns emptyList()
 
         val result = useCase("xyz unknown place")
 
