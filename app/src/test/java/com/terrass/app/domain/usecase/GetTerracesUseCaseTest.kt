@@ -1,0 +1,52 @@
+package com.terrass.app.domain.usecase
+
+import app.cash.turbine.test
+import com.terrass.app.domain.model.Terrace
+import com.terrass.app.domain.repository.TerraceRepository
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+
+class GetTerracesUseCaseTest {
+
+    private lateinit var repository: TerraceRepository
+    private lateinit var useCase: GetTerracesUseCase
+
+    @BeforeEach
+    fun setup() {
+        repository = mockk()
+        useCase = GetTerracesUseCase(repository)
+    }
+
+    @Test
+    fun `invoke returns flow of terraces from repository`() = runTest {
+        val terraces = listOf(
+            Terrace(id = 1, name = "Café A", latitude = 43.6, longitude = 1.4),
+            Terrace(id = 2, name = "Bar B", latitude = 43.7, longitude = 1.5),
+        )
+        every { repository.getAllTerraces() } returns flowOf(terraces)
+
+        useCase().test {
+            val result = awaitItem()
+            assertEquals(2, result.size)
+            assertEquals("Café A", result[0].name)
+            assertEquals("Bar B", result[1].name)
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun `invoke returns empty list when no terraces`() = runTest {
+        every { repository.getAllTerraces() } returns flowOf(emptyList())
+
+        useCase().test {
+            val result = awaitItem()
+            assertEquals(0, result.size)
+            awaitComplete()
+        }
+    }
+}
