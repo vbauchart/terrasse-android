@@ -70,20 +70,21 @@ Créer un fichier `pb_migrations/<timestamp>_<description>.js` :
 ```js
 /// <reference path="../pb_data/types.d.ts" />
 
-migrate((db) => {
-    const dao = new Dao(db);
-    const collection = dao.findCollectionByNameOrId("terraces");
+migrate((app) => {
+    const collection = app.findCollectionByNameOrId("terraces");
 
-    collection.schema.addField(new SchemaField({
-        name: "opening_hours",
-        type: "text",
-    }));
+    collection.fields.push({ name: "opening_hours", type: "text" });
 
-    return dao.saveCollection(collection);
-}, (db) => {
+    app.save(collection);
+}, (app) => {
     // rollback optionnel
 });
 ```
+
+> **Note API (v0.23+) :**
+> - `migrate((app) => ...)` — le paramètre est l'instance app (plus de `Dao`)
+> - `schema` + `SchemaField` remplacés par `fields` + objets plain JS `{ name, type, ... }`
+> - `saveCollection()` / `deleteCollection()` remplacés par `app.save()` / `app.delete()`
 
 Redémarrer PocketBase suffit à appliquer la migration :
 
