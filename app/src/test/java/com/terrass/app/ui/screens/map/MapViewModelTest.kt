@@ -276,11 +276,26 @@ class MapViewModelTest {
     }
 
     @Test
-    fun `onSheetModeChange switches mode`() = runTest {
+    fun `onToggleViewMode switches between map and list`() = runTest {
         viewModel = createViewModel()
-        assertEquals(SheetMode.LIST, viewModel.uiState.value.sheetMode)
+        assertEquals(ViewMode.MAP, viewModel.uiState.value.viewMode)
 
-        viewModel.onSheetModeChange(SheetMode.FILTER)
-        assertEquals(SheetMode.FILTER, viewModel.uiState.value.sheetMode)
+        viewModel.onToggleViewMode()
+        assertEquals(ViewMode.LIST, viewModel.uiState.value.viewMode)
+
+        viewModel.onToggleViewMode()
+        assertEquals(ViewMode.MAP, viewModel.uiState.value.viewMode)
+    }
+
+    @Test
+    fun `onToggleFilterSheet shows and hides filter sheet`() = runTest {
+        viewModel = createViewModel()
+        assertFalse(viewModel.uiState.value.isFilterSheetVisible)
+
+        viewModel.onToggleFilterSheet()
+        assertTrue(viewModel.uiState.value.isFilterSheetVisible)
+
+        viewModel.onDismissFilterSheet()
+        assertFalse(viewModel.uiState.value.isFilterSheetVisible)
     }
 }

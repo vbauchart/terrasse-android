@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import javax.inject.Inject
 
-enum class SheetMode { LIST, FILTER }
+enum class ViewMode { MAP, LIST }
 
 data class MapUiState(
     val center: GeoPoint = GeoPoint(48.8566, 2.3522),
@@ -32,7 +32,8 @@ data class MapUiState(
     val isLocating: Boolean = false,
     val locationError: String? = null,
     val filter: FilterCriteria = FilterCriteria(),
-    val sheetMode: SheetMode = SheetMode.LIST,
+    val viewMode: ViewMode = ViewMode.MAP,
+    val isFilterSheetVisible: Boolean = false,
 )
 
 @HiltViewModel
@@ -178,7 +179,16 @@ class MapViewModel @Inject constructor(
         onFilterChange(FilterCriteria())
     }
 
-    fun onSheetModeChange(mode: SheetMode) {
-        _uiState.value = _uiState.value.copy(sheetMode = mode)
+    fun onToggleViewMode() {
+        val next = if (_uiState.value.viewMode == ViewMode.MAP) ViewMode.LIST else ViewMode.MAP
+        _uiState.value = _uiState.value.copy(viewMode = next)
+    }
+
+    fun onToggleFilterSheet() {
+        _uiState.value = _uiState.value.copy(isFilterSheetVisible = !_uiState.value.isFilterSheetVisible)
+    }
+
+    fun onDismissFilterSheet() {
+        _uiState.value = _uiState.value.copy(isFilterSheetVisible = false)
     }
 }

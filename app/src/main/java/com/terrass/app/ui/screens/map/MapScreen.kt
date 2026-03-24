@@ -4,41 +4,43 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -82,44 +84,56 @@ fun MapScreen(
         )
     }
 
-    val bottomSheetState = rememberStandardBottomSheetState(
-        initialValue = SheetValue.PartiallyExpanded,
-    )
-    val scaffoldState = rememberBottomSheetScaffoldState(
-        bottomSheetState = bottomSheetState,
-    )
-
     val filterCount = uiState.filter.activeCount
-    val terraceCount = uiState.terraces.size
+    val isMapMode = uiState.viewMode == ViewMode.MAP
+    var menuExpanded by remember { mutableStateOf(false) }
 
-    BottomSheetScaffold(
-        scaffoldState = scaffoldState,
+    Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Terrasse") },
                 navigationIcon = {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Vue carte") },
+                                onClick = {
+                                    if (!isMapMode) viewModel.onToggleViewMode()
+                                    menuExpanded = false
+                                },
+                                leadingIcon = if (isMapMode) {
+                                    { Icon(Icons.Default.Check, contentDescription = null) }
+                                } else null,
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Vue liste") },
+                                onClick = {
+                                    if (isMapMode) viewModel.onToggleViewMode()
+                                    menuExpanded = false
+                                },
+                                leadingIcon = if (!isMapMode) {
+                                    { Icon(Icons.Default.Check, contentDescription = null) }
+                                } else null,
+                            )
+                        }
                     }
                 },
                 actions = {
-                    // Bouton filtre avec badge
-                    IconButton(onClick = {
-                        val newMode = if (uiState.sheetMode == SheetMode.FILTER) SheetMode.LIST else SheetMode.FILTER
-                        viewModel.onSheetModeChange(newMode)
-                    }) {
+                    IconButton(onClick = { viewModel.onToggleFilterSheet() }) {
                         BadgedBox(
                             badge = {
-                                if (filterCount > 0) {
-                                    Badge { Text("$filterCount") }
-                                }
+                                if (filterCount > 0) Badge { Text("$filterCount") }
                             },
                         ) {
-                            Icon(
-                                Icons.Default.FilterList,
-                                contentDescription = "Filtres",
-                            )
+                            Icon(Icons.Default.FilterList, contentDescription = "Filtres")
                         }
                     }
                 },
@@ -129,89 +143,80 @@ fun MapScreen(
                 ),
             )
         },
-        sheetPeekHeight = 56.dp,
-        sheetContent = {
-            // Peek header
-            Text(
-                text = if (uiState.sheetMode == SheetMode.FILTER) {
-                    "Filtres" + if (filterCount > 0) " ($filterCount actifs)" else ""
-                } else {
-                    "$terraceCount terrasse${if (terraceCount != 1) "s" else ""}"
-                },
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            )
-
-            when (uiState.sheetMode) {
-                SheetMode.LIST -> {
-                    TerraceListContent(
-                        terraces = uiState.terraces,
-                        onTerraceClick = { terrace -> viewModel.onTerraceSelected(terrace) },
-                    )
-                }
-                SheetMode.FILTER -> {
-                    FilterSheet(
-                        filter = uiState.filter,
-                        onFilterChange = { viewModel.onFilterChange(it) },
-                        onReset = { viewModel.onResetFilter() },
-                    )
-                }
-            }
-        },
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            OsmMapView(
-                modifier = Modifier.fillMaxSize(),
-                center = uiState.center,
-                zoom = uiState.zoom,
-                terraces = uiState.terraces,
-                userLocation = uiState.userLocation,
-                onMarkerClick = { terraceId -> viewModel.onMarkerClick(terraceId) },
-                onMapLongClick = { geoPoint ->
-                    onNavigateToAdd(geoPoint.latitude, geoPoint.longitude)
-                },
-            )
+            if (isMapMode) {
+                OsmMapView(
+                    modifier = Modifier.fillMaxSize(),
+                    center = uiState.center,
+                    zoom = uiState.zoom,
+                    terraces = uiState.terraces,
+                    userLocation = uiState.userLocation,
+                    onMarkerClick = { terraceId -> viewModel.onMarkerClick(terraceId) },
+                    onMapLongClick = { geoPoint ->
+                        onNavigateToAdd(geoPoint.latitude, geoPoint.longitude)
+                    },
+                )
 
-            // FAB "+"
-            FloatingActionButton(
-                onClick = {
-                    val loc = uiState.userLocation ?: uiState.center
-                    onNavigateToAdd(loc.latitude, loc.longitude)
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Ajouter une terrasse")
-            }
-
-            // Bouton recentrer
-            SmallFloatingActionButton(
-                onClick = { viewModel.onCenterOnUser() },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 88.dp, end = 20.dp),
-            ) {
-                if (uiState.isLocating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                } else {
-                    Icon(Icons.Default.LocationOn, contentDescription = "Centrer sur ma position")
+                FloatingActionButton(
+                    onClick = {
+                        val loc = uiState.userLocation ?: uiState.center
+                        onNavigateToAdd(loc.latitude, loc.longitude)
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Ajouter une terrasse")
                 }
+
+                SmallFloatingActionButton(
+                    onClick = { viewModel.onCenterOnUser() },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 88.dp, end = 20.dp),
+                ) {
+                    if (uiState.isLocating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    } else {
+                        Icon(Icons.Default.LocationOn, contentDescription = "Centrer sur ma position")
+                    }
+                }
+            } else {
+                TerraceListContent(
+                    terraces = uiState.terraces,
+                    onTerraceClick = { terrace ->
+                        viewModel.onTerraceSelected(terrace)
+                        viewModel.onToggleViewMode() // revenir à la carte
+                    },
+                )
             }
         }
     }
 
-    // Bottom sheet de détail (modal, au-dessus de tout)
-    uiState.selectedTerrace?.let { terrace ->
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Bottom sheet filtre (modal)
+    if (uiState.isFilterSheetVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.onDismissFilterSheet() },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            FilterSheet(
+                filter = uiState.filter,
+                onFilterChange = { viewModel.onFilterChange(it) },
+                onReset = { viewModel.onResetFilter() },
+            )
+        }
+    }
 
+    // Bottom sheet de détail (modal)
+    uiState.selectedTerrace?.let { terrace ->
         ModalBottomSheet(
             onDismissRequest = { viewModel.onDismissDetail() },
-            sheetState = sheetState,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
             TerraceDetailSheet(
                 terrace = terrace,
