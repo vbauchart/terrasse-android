@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Parasol canopy -->
+    <path
+        android:pathData="M4,10 Q4,4 12,4 Q20,4 20,10 Z"
+        android:fillColor="#388E3C" />
+    <!-- Parasol pole -->
+    <path
+        android:pathData="M12,10 L12,18"
+        android:strokeColor="#5D4037"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+    <!-- Table top -->
+    <path
+        android:pathData="M7,18 L17,18"
+        android:strokeColor="#5D4037"
+        android:strokeWidth="1.5"
+        android:fillColor="#00000000" />
+    <!-- Table legs -->
+    <path
+        android:pathData="M9,18 L8,21"
+        android:strokeColor="#5D4037"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M15,18 L16,21"
+        android:strokeColor="#5D4037"
+        android:strokeWidth="1.2"
+        android:fillColor="#00000000" />
+    <!-- Sun rays -->
+    <path
+        android:pathData="M20,3 L21,2"
+        android:strokeColor="#FFA000"
+        android:strokeWidth="1"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M21,5 L23,5"
+        android:strokeColor="#FFA000"
+        android:strokeWidth="1"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M20,7 L22,8"
+        android:strokeColor="#FFA000"
+        android:strokeWidth="1"
+        android:fillColor="#00000000" />
+</vector>
