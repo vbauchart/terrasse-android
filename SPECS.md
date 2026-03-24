@@ -218,8 +218,8 @@ com/terrass/app/
 │   │   ├── Terrace.kt                      ✅
 │   │   ├── Enums.kt                        ✅
 │   │   ├── PlaceResult.kt                  ✅
-│   │   ├── FilterCriteria.kt               Sprint 4
-│   │   └── MapMarker.kt                    Sprint 4
+│   │   ├── FilterCriteria.kt               ✅
+│   │   └── MapMarker.kt                    Sprint 5
 │   ├── repository/
 │   │   └── TerraceRepository.kt            ✅
 │   └── usecase/
@@ -249,10 +249,10 @@ com/terrass/app/
         │   ├── MapScreen.kt                ✅
         │   ├── MapViewModel.kt             ✅
         │   └── components/
-        │       ├── TerraceListContent.kt   Sprint 4
-        │       ├── TerraceListItem.kt      Sprint 4
+        │       ├── TerraceListContent.kt   ✅
+        │       ├── TerraceListItem.kt      ✅
         │       ├── TerraceDetailSheet.kt   ✅
-        │       └── FilterSheet.kt          Sprint 4
+        │       └── FilterSheet.kt          ✅
         └── addterrace/
             ├── AddEditTerraceScreen.kt     ✅
             └── AddEditTerraceViewModel.kt  ✅
@@ -441,7 +441,7 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 
 ---
 
-### Sprint 4 — Liste et filtres
+### Sprint 4 — Liste et filtres ✅
 **Objectif** : L'utilisateur peut voir la liste des terrasses et filtrer par attributs.
 
 **Contenu** :
@@ -460,14 +460,14 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 - `MapViewModelTest` : changement de filtres met à jour la liste et les marqueurs
 
 **Validation sur device** :
-- [ ] Swipe-up depuis le peek affiche la liste des terrasses
-- [ ] Le peek affiche le nombre de terrasses ("12 terrasses")
-- [ ] Chaque item affiche nom, % positif, chips d'attributs
-- [ ] Tap sur un item zoom sur le marqueur et affiche le détail
-- [ ] Les filtres réduisent la liste ET les marqueurs sur la carte
-- [ ] Le badge indique le nombre de filtres actifs
-- [ ] Réinitialiser les filtres restaure la liste complète
-- [ ] Les tests passent (`./gradlew test`)
+- [x] Swipe-up depuis le peek affiche la liste des terrasses
+- [x] Le peek affiche le nombre de terrasses ("12 terrasses")
+- [x] Chaque item affiche nom, % positif, chips d'attributs
+- [x] Tap sur un item zoom sur le marqueur et affiche le détail
+- [x] Les filtres réduisent la liste ET les marqueurs sur la carte
+- [x] Le badge indique le nombre de filtres actifs
+- [x] Réinitialiser les filtres restaure la liste complète
+- [x] Les tests passent (`./gradlew test`)
 
 ---
 
