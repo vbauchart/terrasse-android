@@ -13,13 +13,15 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 ## 1. Spécifications Fonctionnelles
 
 ### 1.1 Écran principal — Carte interactive
-- Carte osmdroid (tuiles OpenStreetMap) en plein écran
+- TopAppBar avec titre "Terrasse", logo (parasol vectoriel), bouton hamburger (prévu pour menu latéral)
+- Carte osmdroid (tuiles OpenStreetMap) sous la TopAppBar, entre barre de statut et barre de navigation
 - Marqueurs colorés sur chaque terrasse (vert = bien noté, rouge = mal noté, gris = pas de vote)
 - Tap sur un marqueur → bottom sheet de détail
 - Long-press sur la carte → proposer d'ajouter une terrasse à cet endroit
-- Bouton de recentrage sur la position GPS de l'utilisateur
+- Bouton de recentrage sur la position GPS de l'utilisateur (spinner pendant la recherche, snackbar d'erreur, zoom quartier)
 - FAB "+" pour ajouter une terrasse (GPS auto-détecté)
 - FAB/icône filtre avec badge du nombre de filtres actifs
+- Zoom par défaut : niveau ville (12.0), recentrage GPS : niveau quartier (15.0)
 
 ### 1.2 Liste des terrasses (bottom sheet)
 - Bottom sheet intégré à l'écran carte (swipe-up depuis un peek)
@@ -92,7 +94,7 @@ selon des critères précis (soleil, bruit, confort...) via une carte interactiv
 ## 2. Architecture Technique
 
 ### 2.1 Stack
-- **Kotlin 2.1** + **Jetpack Compose** (Material3)
+- **Kotlin 2.1.20** + **Jetpack Compose** (Material3)
 - **Hilt** (injection de dépendances)
 - **Room** (base de données locale)
 - **Navigation Compose** (routing)
@@ -175,9 +177,11 @@ Le sheet a 3 états gérés par le `MapViewModel` : `LIST`, `DETAIL`, `FILTER`.
 
 Wrapper `AndroidView` dans `ui/components/map/OsmMapView.kt` :
 - `factory` : crée le `MapView`, configure les tuiles MAPNIK et le multi-touch
-- `update` : diff les marqueurs par ID (pas de recréation complète), gère le camera move
+- `update` : `animateTo(center, zoom, 300ms)` pour recentrer/zoomer, recrée les marqueurs et overlays
 - `DisposableEffect` : appelle `onResume()` / `onPause()` / `onDetach()`
 - Marqueurs : cercles colorés selon le % de votes positifs
+- `UserLocationOverlay` : point bleu/vert pour la position de l'utilisateur
+- `MapEventsOverlay` : détection du long-press pour ajout
 
 ### 2.8 Modules Hilt
 
@@ -193,102 +197,94 @@ Wrapper `AndroidView` dans `ui/components/map/OsmMapView.kt` :
 
 ```
 com/terrass/app/
-├── MainActivity.kt
-├── TerassApplication.kt
+├── MainActivity.kt                         ✅
+├── TerassApplication.kt                    ✅
 ├── data/
 │   ├── local/
-│   │   ├── TerasseDatabase.kt
+│   │   ├── TerasseDatabase.kt              ✅
 │   │   ├── dao/
-│   │   │   ├── TerraceDao.kt
-│   │   │   └── VoteDao.kt
+│   │   │   ├── TerraceDao.kt               ✅
+│   │   │   └── VoteDao.kt                  ✅
 │   │   ├── entity/
-│   │   │   ├── TerraceEntity.kt
-│   │   │   ├── VoteEntity.kt
-│   │   │   └── TerraceWithVotes.kt
+│   │   │   ├── TerraceEntity.kt            ✅
+│   │   │   ├── VoteEntity.kt               ✅
+│   │   │   └── TerraceWithVotes.kt         ✅
 │   │   └── mapper/
-│   │       └── TerraceMapper.kt
+│   │       └── TerraceMapper.kt            ✅
 │   ├── repository/
-│   │   └── TerraceRepositoryImpl.kt
+│   │   └── TerraceRepositoryImpl.kt        ✅
 │   └── location/
-│       └── LocationProvider.kt
+│       └── LocationProvider.kt             ✅
 ├── domain/
 │   ├── model/
-│   │   ├── Terrace.kt
-│   │   ├── Enums.kt
-│   │   ├── FilterCriteria.kt
-│   │   └── MapMarker.kt
+│   │   ├── Terrace.kt                      ✅
+│   │   ├── Enums.kt                        ✅
+│   │   ├── FilterCriteria.kt               Sprint 4
+│   │   └── MapMarker.kt                    Sprint 4
 │   ├── repository/
-│   │   └── TerraceRepository.kt
+│   │   └── TerraceRepository.kt            ✅
 │   └── usecase/
-│       ├── GetTerracesUseCase.kt
-│       ├── GetTerraceDetailUseCase.kt
-│       ├── AddTerraceUseCase.kt
-│       ├── UpdateTerraceUseCase.kt
-│       ├── DeleteTerraceUseCase.kt
-│       └── VoteTerraceUseCase.kt
+│       ├── GetTerracesUseCase.kt           ✅
+│       ├── GetTerraceDetailUseCase.kt      ✅
+│       ├── AddTerraceUseCase.kt            ✅
+│       ├── UpdateTerraceUseCase.kt         ✅
+│       ├── DeleteTerraceUseCase.kt         ✅
+│       └── VoteTerraceUseCase.kt           ✅
 ├── di/
-│   ├── AppModule.kt
-│   ├── DatabaseModule.kt
-│   └── RepositoryModule.kt
+│   ├── AppModule.kt                        ✅
+│   ├── DatabaseModule.kt                   ✅
+│   └── RepositoryModule.kt                 ✅
 └── ui/
-    ├── TerassApp.kt
+    ├── TerassApp.kt                        ✅
     ├── theme/
-    │   ├── Color.kt
-    │   └── Theme.kt
+    │   ├── Color.kt                        ✅
+    │   └── Theme.kt                        ✅
     ├── components/
     │   ├── map/
-    │   │   ├── OsmMapView.kt
-    │   │   └── MapMarkerUtils.kt
+    │   │   └── OsmMapView.kt               ✅
     │   └── common/
-    │       ├── VoteIndicator.kt
-    │       └── AttributeChip.kt
+    │       └── VoteIndicator.kt            ✅
     └── screens/
         ├── map/
-        │   ├── MapScreen.kt
-        │   ├── MapViewModel.kt
+        │   ├── MapScreen.kt                ✅
+        │   ├── MapViewModel.kt             ✅
         │   └── components/
-        │       ├── TerraceListContent.kt
-        │       ├── TerraceListItem.kt
-        │       ├── TerraceDetailSheet.kt
-        │       └── FilterSheet.kt
+        │       ├── TerraceListContent.kt   Sprint 4
+        │       ├── TerraceListItem.kt      Sprint 4
+        │       ├── TerraceDetailSheet.kt   ✅
+        │       └── FilterSheet.kt          Sprint 4
         └── addterrace/
-            ├── AddEditTerraceScreen.kt
-            ├── AddEditTerraceViewModel.kt
-            └── components/
-                ├── SunExposureSection.kt
-                ├── ComfortSection.kt
-                ├── EnvironmentSection.kt
-                ├── ServiceSection.kt
-                └── LocationPickerMap.kt
+            ├── AddEditTerraceScreen.kt     ✅
+            └── AddEditTerraceViewModel.kt  ✅
+
+res/
+└── drawable/
+    └── ic_logo.xml                         ✅ (logo vectoriel parasol)
 ```
 
 ---
 
-## 4. Dépendances à ajouter
+## 4. Dépendances
+
+> **Note** : ne pas accepter les bumps automatiques d'Android Studio vers AGP 9.x / Kotlin 2.2.x
+> qui cassent la compatibilité Hilt+KSP. Rester sur les versions stables ci-dessous.
 
 ```toml
-# gradle/libs.versions.toml — versions
+# gradle/libs.versions.toml — versions actuelles
+agp = "8.8.2"
+kotlin = "2.1.20"
+ksp = "2.1.20-1.0.32"
+hilt = "2.53.1"
 room = "2.6.1"
+osmdroid = "6.1.20"
 playServicesLocation = "21.3.0"
+coroutines = "1.9.0"
 junit5 = "5.10.2"
-coroutinesTest = "1.9.0"
 turbine = "1.2.0"
 mockk = "1.13.13"
-
-# libraries — production
-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
-
-# libraries — test
-junit5-api = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.ref = "junit5" }
-junit5-engine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junit5" }
-kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
-turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
-mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 ```
+
+Test runtime : `junit-platform-launcher` requis par Gradle 9.x.
 
 ---
 
@@ -328,7 +324,7 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 
 ## 6. Sprints d'implémentation
 
-### Sprint 1 — La carte qui marche
+### Sprint 1 — La carte qui marche ✅
 **Objectif** : L'app s'ouvre sur une carte OSM interactive centrée sur la position de l'utilisateur.
 
 **Contenu** :
@@ -343,16 +339,16 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 - `MapViewModelTest` : état initial, mise à jour position, gestion permission refusée
 
 **Validation sur device** :
-- [ ] L'app s'ouvre sur une carte OpenStreetMap
-- [ ] La carte est interactive (zoom, pan)
-- [ ] La permission GPS est demandée
-- [ ] La carte se centre sur la position de l'utilisateur
-- [ ] Le build compile (`./gradlew assembleDebug`)
-- [ ] Les tests passent (`./gradlew test`)
+- [x] L'app s'ouvre sur une carte OpenStreetMap
+- [x] La carte est interactive (zoom, pan)
+- [x] La permission GPS est demandée
+- [x] La carte se centre sur la position de l'utilisateur
+- [x] Le build compile (`./gradlew assembleDebug`)
+- [x] Les tests passent (`./gradlew test`)
 
 ---
 
-### Sprint 2 — Ajouter une terrasse
+### Sprint 2 — Ajouter une terrasse ✅
 **Objectif** : L'utilisateur peut ajouter une terrasse (nom + position) et la voir apparaître comme marqueur sur la carte.
 
 **Contenu** :
@@ -377,16 +373,16 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 - `TerraceDao` tests instrumentés : insert, getAll, getById
 
 **Validation sur device** :
-- [ ] Long-press sur la carte ouvre le formulaire pré-rempli avec les coordonnées
-- [ ] FAB "+" ouvre le formulaire avec la position GPS
-- [ ] Remplir le nom + attributs et sauvegarder fonctionne
-- [ ] Le marqueur apparaît sur la carte après l'ajout
-- [ ] Retour en arrière depuis le formulaire annule l'ajout
-- [ ] Les tests passent (`./gradlew test`)
+- [x] Long-press sur la carte ouvre le formulaire pré-rempli avec les coordonnées
+- [x] FAB "+" ouvre le formulaire avec la position GPS
+- [x] Remplir le nom + attributs et sauvegarder fonctionne
+- [x] Le marqueur apparaît sur la carte après l'ajout
+- [x] Retour en arrière depuis le formulaire annule l'ajout
+- [x] Les tests passent (`./gradlew test`)
 
 ---
 
-### Sprint 3 — Détail, édition, suppression et votes
+### Sprint 3 — Détail, édition, suppression et votes ✅
 **Objectif** : L'utilisateur peut consulter une terrasse, la modifier, la supprimer et voter.
 
 **Contenu** :
@@ -398,23 +394,27 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 - Bouton modifier → navigation vers `"terrace/{id}/edit"` (réutilise `AddEditTerraceScreen`)
 - Bouton supprimer avec confirmation dialog
 - Couleur des marqueurs selon le % de votes (vert/rouge/gris)
+- TopAppBar avec logo vectoriel (parasol + table + soleil) et bouton hamburger
+- Feedback visuel sur recentrage GPS (spinner + snackbar d'erreur)
+- Animation `animateTo` sur la carte lors du recentrage
 
-**Tests unitaires** :
-- `VoteTerraceUseCaseTest` : insertion vote, calcul pourcentage
-- `UpdateTerraceUseCaseTest` : mise à jour OK
+**Tests unitaires** (32 tests, 0 failures) :
+- `VoteTerraceUseCaseTest` : insertion vote thumbs up / thumbs down
+- `UpdateTerraceUseCaseTest` : mise à jour OK, validation nom vide
 - `DeleteTerraceUseCaseTest` : suppression OK
-- `GetTerraceDetailUseCaseTest` : terrasse avec votes agrégés
+- `GetTerraceDetailUseCaseTest` : terrasse avec votes agrégés, ID inconnu
 - `Terrace.votePercentage` : test des cas limites (0 votes, 100%, 0%)
-- `VoteDao` tests instrumentés : insert, agrégation
+- `MapViewModelTest` : recentrage sans permission, avec position (zoom 15.0), sans position, dismiss erreur
 
 **Validation sur device** :
-- [ ] Tap sur un marqueur affiche le bottom sheet de détail
-- [ ] Les attributs sont affichés correctement
-- [ ] Pouce haut/bas incrémente le compteur et met à jour le %
-- [ ] Modifier ouvre le formulaire pré-rempli, la sauvegarde met à jour le marqueur
-- [ ] Supprimer (avec confirmation) retire le marqueur de la carte
-- [ ] La couleur du marqueur change selon le % de votes
-- [ ] Les tests passent (`./gradlew test`)
+- [x] Tap sur un marqueur affiche le bottom sheet de détail
+- [x] Les attributs sont affichés correctement
+- [x] Pouce haut/bas incrémente le compteur et met à jour le %
+- [x] Modifier ouvre le formulaire pré-rempli, la sauvegarde met à jour le marqueur
+- [x] Supprimer (avec confirmation) retire le marqueur de la carte
+- [x] La couleur du marqueur change selon le % de votes
+- [x] Bouton recentrage GPS fonctionne avec feedback visuel et zoom quartier
+- [x] Les tests passent (`./gradlew test`)
 
 ---
 
