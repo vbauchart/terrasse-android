@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.terrass.app.domain.model.Comfort
 import com.terrass.app.domain.model.Environment
 import com.terrass.app.domain.model.NoiseLevel
+import com.terrass.app.domain.model.PlaceResult
 import com.terrass.app.domain.model.SunTime
 import com.terrass.app.domain.model.PriceRange
 import com.terrass.app.domain.model.RoadProximity
@@ -17,8 +18,11 @@ import com.terrass.app.domain.model.TerraceSize
 import com.terrass.app.domain.model.ViewQuality
 import com.terrass.app.domain.usecase.AddTerraceUseCase
 import com.terrass.app.domain.usecase.GetTerraceDetailUseCase
+import com.terrass.app.domain.usecase.SearchPlacesUseCase
 import com.terrass.app.domain.usecase.UpdateTerraceUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -34,6 +38,7 @@ data class AddTerraceUiState(
     val name: String = "",
     val latitude: Double = 48.8566,
     val longitude: Double = 2.3522,
+    val address: String? = null,
     val sunTimes: Set<SunTime> = emptySet(),
     val isCovered: Boolean = false,
     val isHeated: Boolean = false,
@@ -48,6 +53,10 @@ data class AddTerraceUiState(
     val nameError: String? = null,
     val isSaving: Boolean = false,
     val isLoading: Boolean = false,
+    val searchQuery: String = "",
+    val searchResults: List<PlaceResult> = emptyList(),
+    val isSearching: Boolean = false,
+    val searchError: String? = null,
 ) {
     val isEditMode: Boolean get() = editingId != null
 }
@@ -63,6 +72,7 @@ class AddEditTerraceViewModel @Inject constructor(
     private val addTerraceUseCase: AddTerraceUseCase,
     private val updateTerraceUseCase: UpdateTerraceUseCase,
     private val getTerraceDetailUseCase: GetTerraceDetailUseCase,
+    private val searchPlacesUseCase: SearchPlacesUseCase,
 ) : ViewModel() {
 
     private val terraceId: Long? = savedStateHandle.get<String>("id")?.toLongOrNull()
@@ -80,6 +90,8 @@ class AddEditTerraceViewModel @Inject constructor(
     private val _events = MutableSharedFlow<AddTerraceEvent>()
     val events: SharedFlow<AddTerraceEvent> = _events.asSharedFlow()
 
+    private var searchJob: Job? = null
+
     init {
         if (terraceId != null) {
             loadTerrace(terraceId)
@@ -93,6 +105,7 @@ class AddEditTerraceViewModel @Inject constructor(
                 name = terrace.name,
                 latitude = terrace.latitude,
                 longitude = terrace.longitude,
+                address = terrace.address,
                 sunTimes = terrace.sunExposure.sunTimes,
                 isCovered = terrace.comfort.isCovered,
                 isHeated = terrace.comfort.isHeated,
@@ -163,6 +176,49 @@ class AddEditTerraceViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(latitude = lat, longitude = lng)
     }
 
+    fun updateSearchQuery(query: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = query, searchError = null)
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            _uiState.value = _uiState.value.copy(searchResults = emptyList(), isSearching = false)
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(500)
+            triggerSearch()
+        }
+    }
+
+    fun triggerSearch() {
+        val query = _uiState.value.searchQuery.trim()
+        if (query.isBlank()) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSearching = true, searchError = null)
+            searchPlacesUseCase(query)
+                .onSuccess { results ->
+                    _uiState.value = _uiState.value.copy(searchResults = results, isSearching = false)
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        searchError = error.message ?: "Erreur de recherche",
+                        isSearching = false,
+                    )
+                }
+        }
+    }
+
+    fun applyPlaceResult(place: PlaceResult) {
+        _uiState.value = _uiState.value.copy(
+            name = place.name,
+            latitude = place.latitude,
+            longitude = place.longitude,
+            address = place.address,
+            nameError = null,
+            searchQuery = "",
+            searchResults = emptyList(),
+        )
+    }
+
     fun save() {
         val state = _uiState.value
         if (state.name.isBlank()) {
@@ -177,6 +233,7 @@ class AddEditTerraceViewModel @Inject constructor(
                 name = state.name.trim(),
                 latitude = state.latitude,
                 longitude = state.longitude,
+                address = state.address,
                 sunExposure = SunExposure(state.sunTimes),
                 comfort = Comfort(state.isCovered, state.isHeated, state.size),
                 environment = Environment(state.roadProximity, state.noiseLevel, state.viewQuality, state.hasVegetation),
