@@ -11,6 +11,7 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -111,6 +112,9 @@ fun OsmMapView(
         )
     }
 
+    val lastCenter = remember { mutableStateOf(center) }
+    val lastZoom = remember { mutableStateOf(zoom) }
+
     val mapView = remember {
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
@@ -139,8 +143,12 @@ fun OsmMapView(
         factory = { mapView },
         modifier = modifier,
         update = { view ->
-            // Recentrer et zoomer la carte
-            view.controller.animateTo(center, zoom, 300L)
+            // Recentrer/zoomer uniquement si center ou zoom ont changé
+            if (center != lastCenter.value || zoom != lastZoom.value) {
+                view.controller.animateTo(center, zoom, 300L)
+                lastCenter.value = center
+                lastZoom.value = zoom
+            }
 
             // Long-press handler
             view.overlays.removeAll { it is MapEventsOverlay }
