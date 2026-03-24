@@ -207,6 +207,8 @@ com/terrass/app/
 │   │   │   └── TerraceWithVotes.kt         ✅
 │   │   └── mapper/
 │   │       └── TerraceMapper.kt            ✅
+│   ├── remote/
+│   │   └── NominatimService.kt             ✅
 │   ├── repository/
 │   │   └── TerraceRepositoryImpl.kt        ✅
 │   └── location/
@@ -215,6 +217,7 @@ com/terrass/app/
 │   ├── model/
 │   │   ├── Terrace.kt                      ✅
 │   │   ├── Enums.kt                        ✅
+│   │   ├── PlaceResult.kt                  ✅
 │   │   ├── FilterCriteria.kt               Sprint 4
 │   │   └── MapMarker.kt                    Sprint 4
 │   ├── repository/
@@ -225,7 +228,8 @@ com/terrass/app/
 │       ├── AddTerraceUseCase.kt            ✅
 │       ├── UpdateTerraceUseCase.kt         ✅
 │       ├── DeleteTerraceUseCase.kt         ✅
-│       └── VoteTerraceUseCase.kt           ✅
+│       ├── VoteTerraceUseCase.kt           ✅
+│       └── SearchPlacesUseCase.kt          ✅
 ├── di/
 │   ├── AppModule.kt                        ✅
 │   ├── DatabaseModule.kt                   ✅
@@ -410,6 +414,29 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 - [x] Supprimer (avec confirmation) retire le marqueur de la carte
 - [x] La couleur du marqueur change selon le % de votes
 - [x] Bouton recentrage GPS fonctionne avec feedback visuel et zoom quartier
+- [x] Les tests passent (`./gradlew test`)
+
+---
+
+### Sprint 3b — Recherche d'établissement (Nominatim) ✅
+**Objectif** : L'utilisateur peut rechercher un café/restaurant par son nom et importer automatiquement son nom, adresse et coordonnées GPS dans le formulaire d'ajout.
+
+**Contenu** :
+- `PlaceResult` modèle domain
+- `NominatimService` (appel HTTP `HttpURLConnection` + parse `org.json`, sans dépendance supplémentaire)
+- `SearchPlacesUseCase` (wraps le service, retourne `Result<List<PlaceResult>>`)
+- `AddEditTerraceViewModel` : `searchQuery`, `searchResults`, `isSearching`, `searchError`, debounce 500ms, `applyPlaceResult()`
+- `AddEditTerraceScreen` : bouton "Rechercher l'établissement" + `ModalBottomSheet` (champ recherche, liste résultats, états chargement/erreur/vide)
+- Headers Nominatim : `User-Agent: Terrass Android App`, `Accept-Language: fr`
+
+**Tests unitaires** :
+- `SearchPlacesUseCaseTest` : résultats OK, propagation d'erreur, liste vide
+- `AddEditTerraceViewModelTest` : `applyPlaceResult` pré-remplit nom/lat/lng/adresse, nettoie l'état de recherche
+
+**Validation sur device** :
+- [x] Chercher "Café de Flore Paris" affiche des résultats
+- [x] Tap sur un résultat pré-remplit le formulaire (nom, coordonnées, adresse)
+- [x] Ferme le sheet après sélection
 - [x] Les tests passent (`./gradlew test`)
 
 ---
