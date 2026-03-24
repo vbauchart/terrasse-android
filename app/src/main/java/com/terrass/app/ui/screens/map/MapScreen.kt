@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Badge
@@ -55,7 +56,7 @@ import com.terrass.app.ui.screens.map.components.TerraceListContent
 fun MapScreen(
     onNavigateToAdd: (lat: Double, lng: Double) -> Unit,
     onNavigateToEdit: (Long) -> Unit = {},
-    onMenuClick: () -> Unit = {},
+    onNavigateToStatus: () -> Unit = {},
     viewModel: MapViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -122,6 +123,17 @@ fun MapScreen(
                                 leadingIcon = if (!isMapMode) {
                                     { Icon(Icons.Default.Check, contentDescription = null) }
                                 } else null,
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Statut") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onNavigateToStatus()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Info, contentDescription = null)
+                                },
                             )
                         }
                     }

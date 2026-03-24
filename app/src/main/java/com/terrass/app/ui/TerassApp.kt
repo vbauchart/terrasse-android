@@ -14,6 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.terrass.app.ui.screens.addterrace.AddEditTerraceScreen
 import com.terrass.app.ui.screens.map.MapScreen
+import com.terrass.app.ui.screens.status.StatusScreen
 
 @Composable
 fun TerassApp() {
@@ -36,7 +37,14 @@ fun TerassApp() {
                 onNavigateToEdit = { id ->
                     navController.navigate("terrace/$id/edit")
                 },
+                onNavigateToStatus = {
+                    navController.navigate("status")
+                },
             )
+        }
+
+        composable("status") {
+            StatusScreen(onNavigateBack = { navController.popBackStack() })
         }
 
         composable(

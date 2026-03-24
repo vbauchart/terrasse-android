@@ -4,11 +4,9 @@ import com.terrass.app.data.local.entity.TerraceEntity
 import com.terrass.app.data.preferences.DeviceIdProvider
 import com.terrass.app.data.remote.dto.TerraceDto
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -193,10 +191,7 @@ class PocketBaseService @Inject constructor(
             reader.close()
             sseConn.disconnect()
         }
-    }.flowOn(Dispatchers.IO).retryWhen { _, attempt ->
-        delay(minOf(2000L * (attempt + 1), 30_000L))
-        true
-    }
+    }.flowOn(Dispatchers.IO)
 
     private fun subscribeClient(clientId: String) {
         val url = URL("$baseUrl/api/realtime")

@@ -6,10 +6,15 @@ import com.terrass.app.data.local.entity.VoteEntity
 import com.terrass.app.data.local.mapper.toDomain
 import com.terrass.app.data.local.mapper.toEntity
 import com.terrass.app.data.remote.PocketBaseService
+import com.terrass.app.domain.model.SyncStatus
 import com.terrass.app.domain.model.Terrace
 import com.terrass.app.domain.repository.TerraceRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,6 +28,9 @@ class TerraceRepositoryImpl @Inject constructor(
     private val appScope: CoroutineScope,
 ) : TerraceRepository {
 
+    private val _syncStatus = MutableStateFlow(SyncStatus.IDLE)
+    override val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
+
     init {
         appScope.launch {
             syncFromServer()
@@ -32,23 +40,39 @@ class TerraceRepositoryImpl @Inject constructor(
     }
 
     private suspend fun syncFromServer() {
+        _syncStatus.value = SyncStatus.SYNCING
         runCatching {
             val dtos = pocketBaseService.fetchAllTerraces()
             dtos.forEach { terraceDao.upsert(it.toEntity().copy(synced = true)) }
+            _syncStatus.value = SyncStatus.UP_TO_DATE
+        }.onFailure {
+            _syncStatus.value = SyncStatus.OFFLINE
         }
     }
 
     private fun startRealtimeSync() {
         appScope.launch {
-            pocketBaseService.subscribeToEvents().collect { event ->
-                when (event.action) {
-                    "create", "update" -> event.record?.let {
-                        terraceDao.upsert(it.toEntity().copy(synced = true))
+            var attempt = 0L
+            while (true) {
+                _syncStatus.value = SyncStatus.SYNCING
+                runCatching {
+                    pocketBaseService.subscribeToEvents().collect { event ->
+                        _syncStatus.value = SyncStatus.UP_TO_DATE
+                        attempt = 0
+                        when (event.action) {
+                            "create", "update" -> event.record?.let {
+                                terraceDao.upsert(it.toEntity().copy(synced = true))
+                            }
+                            "delete" -> event.recordId?.let { remoteId ->
+                                terraceDao.getByRemoteId(remoteId)?.let { terraceDao.deleteById(it.id) }
+                            }
+                        }
                     }
-                    "delete" -> event.recordId?.let { remoteId ->
-                        terraceDao.getByRemoteId(remoteId)?.let { terraceDao.deleteById(it.id) }
-                    }
+                }.onFailure {
+                    _syncStatus.value = SyncStatus.OFFLINE
                 }
+                attempt++
+                delay(minOf(2000L * attempt, 30_000L))
             }
         }
     }
