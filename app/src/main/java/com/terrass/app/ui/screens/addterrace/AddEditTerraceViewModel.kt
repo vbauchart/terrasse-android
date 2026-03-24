@@ -16,6 +16,7 @@ import com.terrass.app.domain.model.SunExposure
 import com.terrass.app.domain.model.Terrace
 import com.terrass.app.domain.model.TerraceSize
 import com.terrass.app.domain.model.ViewQuality
+import com.terrass.app.data.location.ReverseGeocodingService
 import com.terrass.app.domain.usecase.AddTerraceUseCase
 import com.terrass.app.domain.usecase.GetTerraceDetailUseCase
 import com.terrass.app.domain.usecase.SearchPlacesUseCase
@@ -73,6 +74,7 @@ class AddEditTerraceViewModel @Inject constructor(
     private val updateTerraceUseCase: UpdateTerraceUseCase,
     private val getTerraceDetailUseCase: GetTerraceDetailUseCase,
     private val searchPlacesUseCase: SearchPlacesUseCase,
+    private val reverseGeocodingService: ReverseGeocodingService,
 ) : ViewModel() {
 
     private val terraceId: Long? = savedStateHandle.get<String>("id")?.toLongOrNull()
@@ -95,6 +97,21 @@ class AddEditTerraceViewModel @Inject constructor(
     init {
         if (terraceId != null) {
             loadTerrace(terraceId)
+        } else {
+            val lat = savedStateHandle.get<String>("lat")?.toDoubleOrNull()
+            val lng = savedStateHandle.get<String>("lng")?.toDoubleOrNull()
+            if (lat != null && lng != null) {
+                reverseGeocode(lat, lng)
+            }
+        }
+    }
+
+    private fun reverseGeocode(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            val address = reverseGeocodingService.getAddress(lat, lng)
+            if (address != null && _uiState.value.address == null) {
+                _uiState.value = _uiState.value.copy(address = address)
+            }
         }
     }
 

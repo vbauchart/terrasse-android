@@ -1,5 +1,9 @@
 package com.terrass.app.ui
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -19,6 +23,10 @@ fun TerassApp() {
         navController = navController,
         startDestination = "map",
         modifier = Modifier.fillMaxSize(),
+        enterTransition = { slideInHorizontally { it } + fadeIn() },
+        exitTransition = { slideOutHorizontally { -it / 3 } + fadeOut() },
+        popEnterTransition = { slideInHorizontally { -it / 3 } + fadeIn() },
+        popExitTransition = { slideOutHorizontally { it } + fadeOut() },
     ) {
         composable("map") {
             MapScreen(

@@ -1,11 +1,13 @@
 package com.terrass.app.ui.screens.addterrace
 
 import androidx.lifecycle.SavedStateHandle
+import com.terrass.app.data.location.ReverseGeocodingService
 import com.terrass.app.domain.model.PlaceResult
 import com.terrass.app.domain.usecase.AddTerraceUseCase
 import com.terrass.app.domain.usecase.GetTerraceDetailUseCase
 import com.terrass.app.domain.usecase.SearchPlacesUseCase
 import com.terrass.app.domain.usecase.UpdateTerraceUseCase
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,19 +26,33 @@ class AddEditTerraceViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
+    private lateinit var reverseGeocodingService: ReverseGeocodingService
     private lateinit var viewModel: AddEditTerraceViewModel
 
     @BeforeEach
     fun setup() {
         Dispatchers.setMain(testDispatcher)
+        reverseGeocodingService = mockk()
+        coEvery { reverseGeocodingService.getAddress(any(), any()) } returns null
         viewModel = AddEditTerraceViewModel(
             savedStateHandle = SavedStateHandle(),
             addTerraceUseCase = mockk(),
             updateTerraceUseCase = mockk(),
             getTerraceDetailUseCase = mockk(),
             searchPlacesUseCase = mockk(),
+            reverseGeocodingService = reverseGeocodingService,
         )
     }
+
+    private fun createViewModel(savedStateHandle: SavedStateHandle = SavedStateHandle()) =
+        AddEditTerraceViewModel(
+            savedStateHandle = savedStateHandle,
+            addTerraceUseCase = mockk(),
+            updateTerraceUseCase = mockk(),
+            getTerraceDetailUseCase = mockk(),
+            searchPlacesUseCase = mockk(),
+            reverseGeocodingService = reverseGeocodingService,
+        )
 
     @AfterEach
     fun tearDown() {
@@ -78,6 +94,33 @@ class AddEditTerraceViewModelTest {
         val state = viewModel.uiState.value
         assertEquals("", state.searchQuery)
         assertEquals(emptyList<PlaceResult>(), state.searchResults)
+    }
+
+    @Test
+    fun `reverse geocoding fills address when lat and lng provided`() = runTest {
+        coEvery { reverseGeocodingService.getAddress(48.854, 2.332) } returns "172 Bd Saint-Germain, Paris"
+
+        val vm = createViewModel(
+            savedStateHandle = SavedStateHandle(mapOf("lat" to "48.854", "lng" to "2.332"))
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("172 Bd Saint-Germain, Paris", vm.uiState.value.address)
+    }
+
+    @Test
+    fun `reverse geocoding does not override address set by applyPlaceResult`() = runTest {
+        coEvery { reverseGeocodingService.getAddress(any(), any()) } returns "Adresse Geocoder"
+
+        val vm = createViewModel()
+        val place = PlaceResult(
+            name = "Café Test", displayName = "Café Test",
+            latitude = 48.8, longitude = 2.3, address = "Adresse Nominatim",
+        )
+        vm.applyPlaceResult(place)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Adresse Nominatim", vm.uiState.value.address)
     }
 
     @Test

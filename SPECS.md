@@ -471,7 +471,7 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 
 ---
 
-### Sprint 5 — Polish et finitions
+### Sprint 5 — Polish et finitions ✅
 **Objectif** : L'app est agréable à utiliser avec des finitions soignées.
 
 **Contenu** :
@@ -487,9 +487,9 @@ Le test de validation de chaque sprint est exécutable sur device ou émulateur.
 - Tests des edge cases : pas de réseau, permission refusée, base vide
 
 **Validation sur device** :
-- [ ] L'adresse s'affiche dans le détail quand disponible
-- [ ] Les marqueurs ont des icônes colorées distinctes
-- [ ] Les états vides sont affichés correctement
-- [ ] L'app reste fonctionnelle sans réseau (tuiles en cache, données locales)
-- [ ] Les transitions sont fluides
-- [ ] Les tests passent (`./gradlew test`)
+- [x] L'adresse s'affiche dans le détail quand disponible
+- [x] Les marqueurs ont des icônes colorées distinctes (pin + logo)
+- [x] Les états vides sont affichés correctement ("Aucune terrasse" / "Aucun résultat pour ces filtres")
+- [x] L'app reste fonctionnelle sans réseau (tuiles en cache, données locales)
+- [x] Les transitions sont fluides (slideInHorizontally + fadeIn)
+- [x] Les tests passent (`./gradlew test`)

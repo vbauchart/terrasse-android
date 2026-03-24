@@ -20,6 +20,7 @@ fun TerraceListContent(
     terraces: List<Terrace>,
     onTerraceClick: (Terrace) -> Unit,
     modifier: Modifier = Modifier,
+    hasActiveFilters: Boolean = false,
 ) {
     if (terraces.isEmpty()) {
         Box(
@@ -27,7 +28,7 @@ fun TerraceListContent(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "Aucune terrasse",
+                text = if (hasActiveFilters) "Aucun résultat pour ces filtres" else "Aucune terrasse",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.outline,
             )

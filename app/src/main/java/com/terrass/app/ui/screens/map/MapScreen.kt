@@ -193,6 +193,7 @@ fun MapScreen(
                         viewModel.onTerraceSelected(terrace)
                         viewModel.onToggleViewMode() // revenir à la carte
                     },
+                    hasActiveFilters = filterCount > 0,
                 )
             }
         }
