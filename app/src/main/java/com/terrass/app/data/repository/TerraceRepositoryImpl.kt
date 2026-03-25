@@ -44,6 +44,7 @@ class TerraceRepositoryImpl @Inject constructor(
     private suspend fun syncFromServer() {
         _syncStatus.value = SyncStatus.SYNCING
         runCatching {
+            pocketBaseService.ensureAuth()
             val dtos = pocketBaseService.fetchAllTerraces()
             dtos.forEach { terraceDao.upsert(it.toEntity().copy(synced = true)) }
             _syncStatus.value = SyncStatus.UP_TO_DATE
@@ -58,6 +59,7 @@ class TerraceRepositoryImpl @Inject constructor(
             while (true) {
                 _syncStatus.value = SyncStatus.SYNCING
                 runCatching {
+                    pocketBaseService.ensureAuth()
                     pocketBaseService.subscribeToEvents().collect { event ->
                         _syncStatus.value = SyncStatus.UP_TO_DATE
                         attempt = 0

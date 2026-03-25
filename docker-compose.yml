@@ -2,6 +2,9 @@ services:
   pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
     restart: unless-stopped
+    environment:
+        PB_ADMIN_EMAIL: admin@admin.fr
+        PB_ADMIN_PASSWORD: mRnvMQ#AFyZ8^DxZ
     ports:
       - "8090:8090"
     volumes:
