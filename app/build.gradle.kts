@@ -18,17 +18,19 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        val pocketbaseUrl = rootProject.file("local.properties")
-            .takeIf { it.exists() }
-            ?.readLines()
-            ?.firstOrNull { it.startsWith("pocketbaseUrl=") }
-            ?.substringAfter("=")
-            ?: findProperty("pocketbaseUrl")?.toString()
-            ?: "http://localhost:8090"
-        buildConfigField("String", "POCKETBASE_URL", "\"$pocketbaseUrl\"")
     }
 
     buildTypes {
+        debug {
+            val pocketbaseUrl = rootProject.file("local.properties")
+                .takeIf { it.exists() }
+                ?.readLines()
+                ?.firstOrNull { it.startsWith("pocketbaseUrl=") }
+                ?.substringAfter("=")
+                ?: findProperty("pocketbaseUrl")?.toString()
+                ?: "http://localhost:8090"
+            buildConfigField("String", "POCKETBASE_URL", "\"$pocketbaseUrl\"")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -36,6 +38,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            buildConfigField("String", "POCKETBASE_URL", "\"https://pocketbase.bauchbauch.ovh\"")
         }
     }
 

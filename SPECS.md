@@ -529,10 +529,27 @@ Service : **Photon** (komoot) — recherche partielle/préfixe native, pas de d�
 L'API PocketBase est publique (rules vides). Pas de secret dans l'APK.
 
 ### Approche recommandée (post-MVP)
-Pour éviter le spam sans Google :
 
-1. **Enregistrement anonyme** au 1er lancement → token JWT PocketBase stocké dans Android Keystore (non-extractible, device-specific)
-2. **API rules PocketBase** passent à `@request.auth.id != ""` (auth requise)
-3. **Rate limiting** par IP via Caddy/nginx devant PocketBase
+**Play Integrity API + JWT Android Keystore**
 
-Le secret n'est jamais dans l'APK — il est généré côté serveur au 1er lancement et stocké dans l'enclave matérielle.
+Flux :
+1. Au 1er lancement, l'app demande un token d'attestation à la **Play Integrity API**
+2. Ce token (signé par Google) prouve que l'APK est légitime, non modifié, sur un appareil sain
+3. L'app envoie ce token au backend → le backend le vérifie auprès des serveurs Google
+4. Si valide, le backend génère un **JWT** et le retourne → stocké dans l'**Android Keystore** (enclave matérielle, non-extractible)
+5. Tous les appels suivants incluent `Authorization: Bearer <jwt>`
+6. Les **API rules PocketBase** passent à `@request.auth.id != ""` (auth requise)
+
+Garanties :
+- APK signé avec la bonne clé de signature (non repackagé)
+- Appareil non rooté, Play Store actif
+- Aucun secret statique dans l'APK
+- Le JWT est device-specific et non-extractible
+
+Limites :
+- Nécessite **Google Play Services** sur l'appareil (~95% des Android)
+- Nécessite un projet Google Cloud (gratuit jusqu'à 10 000 requêtes/jour)
+- Ne protège pas contre un utilisateur sur émulateur certifié ou appareil rooté avec bypass
+
+Complément recommandé :
+- **Rate limiting** par IP via Caddy/nginx devant PocketBase (protection complémentaire)
